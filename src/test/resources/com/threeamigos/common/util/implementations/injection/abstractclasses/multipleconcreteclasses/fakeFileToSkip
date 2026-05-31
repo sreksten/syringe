@@ -1,0 +1,5 @@
+This file is used to test ClassResolver filters.
+It should be automatically added to the
+ ${project.build.testOutputDirectory}/com/threeamigos/common/util/implementations/injection/abstractclasses/multipleannotatedconcreteclasses
+ directory by pom.xml.
+
