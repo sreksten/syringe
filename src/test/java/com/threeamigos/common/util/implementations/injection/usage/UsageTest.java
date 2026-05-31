@@ -1,34 +1,24 @@
-# Syringe – a CDI4.1 compatible framework
+package com.threeamigos.common.util.implementations.injection.usage;
 
-Part of the common-util classes, designed to help when writing standalone Java applications.
+import com.threeamigos.common.util.implementations.injection.Syringe;
+import com.threeamigos.common.util.implementations.injection.discovery.NonPortableBehaviourException;
+import jakarta.enterprise.inject.se.SeContainer;
+import jakarta.enterprise.inject.se.SeContainerInitializer;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
-This subpackage addresses the following needs:
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-### Context Dependency and Injection
-
-Syringe provides a lightweight and flexible way to manage dependencies and perform dependency injection in standalone
-Java applications. It is compatible with the CDI 4.1 specification. Syringe also supports `javax.inject` annotations.
-
-Usage:
-
-Add Syringe to your project's build configuration file. Syringe depends on the common-utils-messagehandler package.
-
-```
-        <dependency>
-            <groupId>com.threeamigos</groupId>
-            <artifactId>syringe</artifactId>
-            <version>4.1.0</version>
-        </dependency>
-        <dependency>
-            <groupId>com.threeamigos</groupId>
-            <artifactId>common-utils-messagehandler</artifactId>
-            <version>1.0-SNAPSHOT</version>
-        </dependency>
-```
-
-To use Syringe see the UsageTest class:
-
-```
+/**
+ * IMPORTANT: this class' tests cannot be run in parallel due to the use of the
+ * jakarta.enterprise.inject.scan.implicit environment variable.
+ * <p>
+ * See Chapter 27 - Packaging and deployment in Java SE, §27.1: Bean archive in Java SE.
+ *
+ * @author Stefano Reksten
+ */
 @Execution(ExecutionMode.SAME_THREAD)
 public class UsageTest {
 
@@ -66,5 +56,3 @@ public class UsageTest {
         syringe.shutdown();
     }
 }
-
-```
