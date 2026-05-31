@@ -1,4 +1,4 @@
-# Syringe – a CDI4.1 compatible framework
+# Syringe – a CDI 4.1 compatible injection framework
 
 Part of the common-util classes, designed to help when writing standalone Java applications.
 
@@ -7,7 +7,12 @@ This subpackage addresses the following needs:
 ### Context Dependency and Injection
 
 Syringe provides a lightweight and flexible way to manage dependencies and perform dependency injection in standalone
-Java applications. It is compatible with the CDI 4.1 specification. Syringe also supports `javax.inject` annotations.
+Java applications. It is compatible with the CDI 4.1 specification. It does **not** support EL, since it was
+deprecated in 4.1 (and it's hardly necessary for standalone applications).
+
+Syringe also supports the older `javax.inject` annotations.
+
+It was tested using the official TCK.
 
 Usage:
 
@@ -26,7 +31,7 @@ Add Syringe to your project's build configuration file. Syringe depends on the c
         </dependency>
 ```
 
-To use Syringe see the UsageTest class:
+To use Syringe, see the UsageTest class:
 
 ```
 @Execution(ExecutionMode.SAME_THREAD)
