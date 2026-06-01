@@ -7,27 +7,26 @@ This subpackage addresses the following needs:
 ### Context Dependency and Injection
 
 Syringe provides a lightweight and flexible way to manage dependencies and perform dependency injection in standalone
-Java applications. It is compatible with the CDI 4.1 specification. It does **not** support EL, since it was
-deprecated in 4.1 (and it's hardly necessary for standalone applications).
+Java applications. It is compatible with the CDI 4.1 specification. It does **not** support EL however, since it was
+deprecated in 4.1 (and I think it's hardly necessary for standalone applications).
 
 Syringe also supports the older `javax.inject` annotations.
 
-It was tested using the official TCK.
+It was tested against the official TCK.
 
 Usage:
 
-Add Syringe to your project's build configuration file. Syringe depends on the common-utils-messagehandler package.
+Add Syringe to your project's build configuration file. Syringe has the following dependencies:
+- common-utils-messagehandler
+- common-utils-collections
+- common-utils-concurency
+And of course, it depends on the jakarta.annotations package and others (see pom.xml).
 
 ```
         <dependency>
             <groupId>com.threeamigos</groupId>
             <artifactId>syringe</artifactId>
             <version>4.1.0</version>
-        </dependency>
-        <dependency>
-            <groupId>com.threeamigos</groupId>
-            <artifactId>common-utils-messagehandler</artifactId>
-            <version>1.0-SNAPSHOT</version>
         </dependency>
 ```
 

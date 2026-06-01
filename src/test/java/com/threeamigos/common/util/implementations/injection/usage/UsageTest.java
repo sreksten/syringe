@@ -8,6 +8,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -20,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * @author Stefano Reksten
  */
 @Execution(ExecutionMode.SAME_THREAD)
+@Isolated
 public class UsageTest {
 
     @Test
@@ -38,12 +40,21 @@ public class UsageTest {
     @Test
     @DisplayName("Standard CDI initialization, implicit scan")
     public void standardCDIInitializationImplicitScan() {
+        String key = "jakarta.enterprise.inject.scan.implicit";
+        String previous = System.getProperty(key);
         // This will find a TON of classes!
-        System.setProperty("jakarta.enterprise.inject.scan.implicit", "true");
-        SeContainerInitializer containerInit = SeContainerInitializer.newInstance();
-        // Since the test package contains a failing test, this will be noticed and reported
-        assertThrows(NonPortableBehaviourException.class, containerInit::initialize);
-        System.setProperty("jakarta.enterprise.inject.scan.implicit", "false");
+        System.setProperty(key, "true");
+        try {
+            SeContainerInitializer containerInit = SeContainerInitializer.newInstance();
+            // Since the test package contains a failing test, this will be noticed and reported
+            assertThrows(NonPortableBehaviourException.class, containerInit::initialize);
+        } finally {
+            if (previous == null) {
+                System.clearProperty(key);
+            } else {
+                System.setProperty(key, previous);
+            }
+        }
     }
 
     @Test

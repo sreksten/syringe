@@ -17,8 +17,13 @@
     <dependencies>
         <dependency>
             <groupId>com.threeamigos</groupId>
-            <artifactId>common-utils</artifactId>
-            <version>1.0.6-SNAPSHOT</version>
+            <artifactId>common-utils-concurrency</artifactId>
+            <version>1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.threeamigos</groupId>
+            <artifactId>common-utils-collections</artifactId>
+            <version>1.0</version>
         </dependency>
         <dependency>
             <groupId>com.threeamigos</groupId>
@@ -79,6 +84,12 @@
             <groupId>jakarta.xml.bind</groupId>
             <artifactId>jakarta.xml.bind-api</artifactId>
             <version>4.0.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish.jaxb</groupId>
+            <artifactId>jaxb-runtime</artifactId>
+            <version>4.0.5</version>
+            <scope>test</scope>
         </dependency>
         <!-- Java EE / javax dependencies (JSR-330, JSR-250, CDI 1.2) -->
         <dependency>
