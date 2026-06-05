@@ -2,6 +2,9 @@ package com.threeamigos.common.util.implementations.injection.extensions;
 
 import com.threeamigos.common.util.implementations.injection.Syringe;
 import com.threeamigos.common.util.implementations.injection.annotations.AnnotatedMetadataHelper;
+import com.threeamigos.common.util.implementations.injection.beansxml.BeansXml;
+import com.threeamigos.common.util.implementations.injection.builtinbeans.ActivateRequestContextInterceptor;
+import com.threeamigos.common.util.implementations.injection.discovery.BeanArchiveMode;
 import com.threeamigos.common.util.implementations.injection.discovery.NonPortableBehaviourException;
 import com.threeamigos.common.util.implementations.injection.events.ObserverMethodInfo;
 import com.threeamigos.common.util.implementations.injection.events.ObserverMethodInfoKey;
@@ -21,7 +24,8 @@ import java.util.*;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotatedMetadataHelper.*;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationExtractors.getPriorityValue;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.hasObservesAnnotation;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.*;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.hasDecoratorAnnotation;
 import static com.threeamigos.common.util.implementations.injection.spi.SPIUtils.isBeforeShutdownLifecycleEvent;
 import static com.threeamigos.common.util.implementations.injection.spi.SPIUtils.isContainerLifecycleObservedType;
 import static com.threeamigos.common.util.implementations.injection.types.RawTypeExtractor.extractRawClass;
@@ -1042,4 +1046,254 @@ public class ExtensionsManagerImpl implements ExtensionsManager {
         BeforeBeanDiscovery event = new BeforeBeanDiscoveryImpl(messageHandler, knowledgeBase, beanManager);
         fireEventToExtensions(event);
     }
+
+    public void fireAfterTypeDiscovery() {
+        messageHandler.info("Firing AfterTypeDiscovery event");
+
+        List<Class<?>> alternatives = collectPriorityEnabledAlternatives();
+        List<Class<?>> interceptors = collectPriorityEnabledInterceptors();
+        List<Class<?>> decorators = collectPriorityEnabledDecorators();
+        List<Class<?>> initialAlternatives = new ArrayList<>(alternatives);
+        List<Class<?>> initialInterceptors = new ArrayList<>(interceptors);
+        List<Class<?>> initialDecorators = new ArrayList<>(decorators);
+
+        AfterTypeDiscovery event = new AfterTypeDiscoveryImpl(
+                messageHandler, knowledgeBase, beanManager, alternatives, interceptors, decorators);
+        fireEventToExtensions(event);
+        processRegisteredAnnotatedTypes();
+
+        knowledgeBase.setApplicationAlternativeOrder(alternatives);
+        knowledgeBase.setApplicationInterceptorOrder(interceptors);
+        knowledgeBase.setApplicationDecoratorOrder(decorators);
+        knowledgeBase.setAfterTypeDiscoveryAlternativesCustomized(!initialAlternatives.equals(alternatives));
+        knowledgeBase.setAfterTypeDiscoveryInterceptorsCustomized(!initialInterceptors.equals(interceptors));
+        knowledgeBase.setAfterTypeDiscoveryDecoratorsCustomized(!initialDecorators.equals(decorators));
+    }
+
+    private List<Class<?>> collectPriorityEnabledAlternatives() {
+        List<Class<?>> enabled = new ArrayList<>();
+        for (Class<?> candidate : knowledgeBase.getClasses()) {
+            if (!hasAlternativeAnnotation(candidate)) {
+                continue;
+            }
+            Integer priority = knowledgeBase.getEffectivePriority(candidate);
+            if (priority == null) {
+                continue;
+            }
+            if (!enabled.contains(candidate)) {
+                enabled.add(candidate);
+            }
+        }
+        enabled.sort(Comparator
+                .comparingInt((Class<?> clazz) -> {
+                    Integer priority = knowledgeBase.getEffectivePriority(clazz);
+                    return priority != null ? priority : Integer.MAX_VALUE;
+                })
+                .thenComparing(Class::getName));
+        return enabled;
+    }
+
+    private List<Class<?>> collectPriorityEnabledInterceptors() {
+        List<Class<?>> enabled = new ArrayList<>();
+        for (Class<?> candidate : knowledgeBase.getClasses()) {
+            if (!hasInterceptorAnnotation(candidate)) {
+                continue;
+            }
+            if (ActivateRequestContextInterceptor.class.equals(candidate)) {
+                continue;
+            }
+            Integer priority = knowledgeBase.getEffectivePriority(candidate);
+            if (priority == null) {
+                continue;
+            }
+            if (!enabled.contains(candidate)) {
+                enabled.add(candidate);
+            }
+        }
+        enabled.sort(Comparator
+                .comparingInt((Class<?> clazz) -> {
+                    Integer priority = knowledgeBase.getEffectivePriority(clazz);
+                    return priority != null ? priority : Integer.MAX_VALUE;
+                })
+                .thenComparing(Class::getName));
+        return enabled;
+    }
+
+    private List<Class<?>> collectPriorityEnabledDecorators() {
+        List<Class<?>> enabled = new ArrayList<>();
+        for (Class<?> candidate : knowledgeBase.getClasses()) {
+            if (!hasDecoratorAnnotation(candidate)) {
+                continue;
+            }
+            Integer priority = knowledgeBase.getEffectivePriority(candidate);
+            if (priority == null) {
+                continue;
+            }
+            if (!enabled.contains(candidate)) {
+                enabled.add(candidate);
+            }
+        }
+        enabled.sort(Comparator
+                .comparingInt((Class<?> clazz) -> {
+                    Integer priority = knowledgeBase.getEffectivePriority(clazz);
+                    return priority != null ? priority : Integer.MAX_VALUE;
+                })
+                .thenComparing(Class::getName));
+        return enabled;
+    }
+
+    @Override
+    public void processRegisteredAnnotatedTypes() {
+        Map<String, AnnotatedType<?>> registeredTypes = knowledgeBase.getRegisteredAnnotatedTypes();
+
+        if (registeredTypes.isEmpty()) {
+            messageHandler.info("No registered AnnotatedTypes to process");
+            return;
+        }
+
+        messageHandler.info("Processing " + registeredTypes.size() + " registered AnnotatedTypes");
+
+        for (Map.Entry<String, AnnotatedType<?>> entry : registeredTypes.entrySet()) {
+            String id = entry.getKey();
+            if (knowledgeBase.processedSyntheticAnnotatedTypeIds.contains(id)) {
+                continue;
+            }
+            AnnotatedType<?> annotatedType = entry.getValue();
+            Class<?> clazz = annotatedType.getJavaClass();
+            boolean alreadyDiscovered = knowledgeBase.getClasses().contains(clazz);
+            Extension sourceExtension = knowledgeBase.getRegisteredAnnotatedTypeSource(id);
+
+            messageHandler.info("Processing registered AnnotatedType: " + clazz.getName() + " (ID: " + id + ")");
+
+            if (shouldSkipProcessAnnotatedTypeEvent(clazz)) {
+                if (!alreadyDiscovered) {
+                    knowledgeBase.vetoType(clazz);
+                }
+                knowledgeBase.processedSyntheticAnnotatedTypeIds.add(id);
+                continue;
+            }
+
+            @SuppressWarnings({"rawtypes", "unchecked"})
+            ProcessSyntheticAnnotatedTypeImpl<?> event = new ProcessSyntheticAnnotatedTypeImpl(
+                    messageHandler,
+                    annotatedType,
+                    sourceExtension);
+            fireEventToExtensions(event);
+
+            if (event.isVetoed()) {
+                if (!alreadyDiscovered) {
+                    knowledgeBase.vetoType(clazz);
+                }
+                knowledgeBase.processedSyntheticAnnotatedTypeIds.add(id);
+                continue;
+            }
+
+            AnnotatedType<?> finalAnnotatedType = event.getAnnotatedTypeInternal();
+            if (finalAnnotatedType == null) {
+                finalAnnotatedType = annotatedType;
+            }
+
+            // Add the class to KnowledgeBase so it will be processed as a bean candidate.
+            // Only mark it as synthetic-only when it was not already discovered on the classpath.
+            if (alreadyDiscovered) {
+                // CDI 4.1: addAnnotatedType() for an already discovered Java class contributes
+                // an additional bean definition. Keep discovered class metadata untouched and
+                // register this AnnotatedType as an extra bean during validation.
+                knowledgeBase.additionalAnnotatedTypesForDiscoveredClasses.put(id, finalAnnotatedType);
+                knowledgeBase.processedSyntheticAnnotatedTypeIds.add(id);
+                continue;
+            }
+            knowledgeBase.addProgrammatic(
+                    clazz,
+                    resolveProgrammaticAnnotatedTypeArchiveMode(clazz, sourceExtension));
+            knowledgeBase.syntheticAnnotatedTypeClasses.add(clazz);
+            knowledgeBase.setAnnotatedTypeOverride(clazz, finalAnnotatedType);
+            knowledgeBase.processedSyntheticAnnotatedTypeIds.add(id);
+        }
+
+        messageHandler.info("Total classes after registered types: " + knowledgeBase.getClasses().size());
+    }
+
+    private BeanArchiveMode resolveProgrammaticAnnotatedTypeArchiveMode(Class<?> clazz,
+                                                                        Extension sourceExtension) {
+        if (knowledgeBase.forcedBeanArchiveMode != null) {
+            return knowledgeBase.forcedBeanArchiveMode;
+        }
+
+        BeanArchiveMode classMode = modeOfKnownClass(clazz);
+        if (classMode != null) {
+            return knowledgeBase.effectiveBeanArchiveMode(classMode);
+        }
+
+        if (sourceExtension != null) {
+            BeanArchiveMode sourceMode = modeOfKnownClass(sourceExtension.getClass());
+            if (sourceMode != null) {
+                return knowledgeBase.effectiveBeanArchiveMode(sourceMode);
+            }
+        }
+
+        BeanArchiveMode beansXmlMode = resolveProgrammaticArchiveModeFromBeansXml();
+        if (beansXmlMode != null) {
+            return knowledgeBase.effectiveBeanArchiveMode(beansXmlMode);
+        }
+
+        return knowledgeBase.effectiveBeanArchiveMode(BeanArchiveMode.IMPLICIT);
+    }
+
+    private BeanArchiveMode modeOfKnownClass(Class<?> candidate) {
+        if (candidate == null || !knowledgeBase.getClasses().contains(candidate)) {
+            return null;
+        }
+        return knowledgeBase.getBeanArchiveMode(candidate);
+    }
+
+    private BeanArchiveMode resolveProgrammaticArchiveModeFromBeansXml() {
+        BeanArchiveMode resolvedMode = null;
+        for (BeansXml beansXml : knowledgeBase.getBeansXmlConfigurations()) {
+            if (beansXml == null) {
+                continue;
+            }
+            String discoveryMode = beansXml.getBeanDiscoveryMode();
+            if (discoveryMode == null) {
+                continue;
+            }
+            String normalizedMode = discoveryMode.trim().toLowerCase(Locale.ROOT);
+            if ("all".equals(normalizedMode) || isLegacyAllByDefaultDescriptor(beansXml, normalizedMode)) {
+                BeanArchiveMode mode = beansXml.isTrimEnabled() ? BeanArchiveMode.TRIMMED : BeanArchiveMode.EXPLICIT;
+                if (BeanArchiveMode.TRIMMED.equals(mode)) {
+                    return mode;
+                }
+                resolvedMode = mode;
+            }
+        }
+        return resolvedMode;
+    }
+
+    private boolean isLegacyAllByDefaultDescriptor(BeansXml beansXml, String normalizedMode) {
+        if (beansXml == null || !"annotated".equals(normalizedMode)) {
+            return false;
+        }
+        // CDI 1.0 legacy descriptor semantics (java.sun namespace + no discovery mode attribute)
+        // default to "all"; modern empty beans.xml defaults to "annotated".
+        if (beansXml.isBeanDiscoveryModeDeclared() || beansXml.isNotLegacyJavaSunDescriptor()) {
+            return false;
+        }
+        String version = beansXml.getVersion();
+        if (version == null || version.trim().isEmpty()) {
+            return true;
+        }
+        String trimmed = version.trim();
+        if ("1".equals(trimmed) || "1.0".equals(trimmed)) {
+            return true;
+        }
+        try {
+            String[] parts = trimmed.split("\\.");
+            int major = Integer.parseInt(parts[0]);
+            int minor = parts.length > 1 ? Integer.parseInt(parts[1]) : 0;
+            return major < 1 || (major == 1 && minor == 0);
+        } catch (NumberFormatException ignored) {
+            return false;
+        }
+    }
+
 }

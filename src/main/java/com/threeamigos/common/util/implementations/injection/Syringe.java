@@ -5,7 +5,6 @@ import com.threeamigos.common.util.implementations.injection.annotations.Dynamic
 import com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates;
 
 import com.threeamigos.common.util.implementations.concurrency.ParallelTaskExecutor;
-import com.threeamigos.common.util.implementations.injection.annotations.QualifiersHelper;
 import com.threeamigos.common.util.implementations.injection.bce.*;
 import com.threeamigos.common.util.implementations.injection.beansxml.BeansXml;
 import com.threeamigos.common.util.implementations.injection.beansxml.Alternatives;
@@ -20,6 +19,7 @@ import com.threeamigos.common.util.implementations.injection.discovery.validatio
 import com.threeamigos.common.util.implementations.injection.events.ObserverMethodInfoKey;
 import com.threeamigos.common.util.implementations.injection.extensions.ExtensionsManager;
 import com.threeamigos.common.util.implementations.injection.extensions.ExtensionsManagerImpl;
+import com.threeamigos.common.util.implementations.injection.knowledgebase.ScopeMetadata;
 import com.threeamigos.common.util.implementations.injection.scopes.ContextManager;
 import com.threeamigos.common.util.implementations.injection.discovery.*;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.KnowledgeBase;
@@ -62,23 +62,13 @@ import jakarta.enterprise.event.TransactionPhase;
 import jakarta.enterprise.inject.AmbiguousResolutionException;
 import jakarta.enterprise.inject.IllegalProductException;
 import jakarta.enterprise.inject.UnsatisfiedResolutionException;
-import jakarta.enterprise.inject.build.compatible.spi.BuildCompatibleExtension;
-import jakarta.enterprise.inject.build.compatible.spi.SkipIfPortableExtensionPresent;
 import jakarta.enterprise.inject.spi.*;
 
-import java.io.BufferedReader;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Member;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
@@ -89,9 +79,9 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotatedMetadataHelper.*;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.*;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.*;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationExtractors.*;
+import static com.threeamigos.common.util.implementations.injection.spi.SPIUtils.extractPrioritizedInterfacePriority;
 import static com.threeamigos.common.util.implementations.injection.types.RawTypeExtractor.extractRawClass;
 
 /**
@@ -169,21 +159,15 @@ public class Syringe {
      */
     private ContextManager contextManager;
 
+    /**
+     * The ExtensionsManager, responsible for handling extensions
+     */
     private ExtensionsManager extensionsManager;
 
-    private BuildCompatibleExtensionsManager buildCompatibleExtensionsManager;
-
     /**
-     * Optional forced bean archive mode used during validation/discovery processing.
-     * When set, this mode overrides detected archive mode for all classes that are
-     * already discovered and present in the KnowledgeBase.
-     *
-     * <p>Important limitation: this does not alter scanner-time archive detection.
-     * If an archive is skipped by the scanner because it is detected as
-     * bean-discovery-mode="none", those classes are never added and therefore cannot
-     * be affected by this override.
+     * The BuildCompatibleExtensionsManager, responsible for handling build compatible extensions
      */
-    private BeanArchiveMode forcedBeanArchiveMode;
+    private BuildCompatibleExtensionsManager buildCompatibleExtensionsManager;
 
     /**
      * The BeanManager - central interface for programmatic CDI access.
@@ -239,18 +223,11 @@ public class Syringe {
      */
     private final Map<Class<? extends Annotation>, Context> customContextsToRegister = new HashMap<>();
 
-    private final Set<String> processedSyntheticAnnotatedTypeIds = new HashSet<>();
-
-    private final Set<Class<?>> syntheticAnnotatedTypeClasses = new HashSet<>();
-
     /**
      * Classes explicitly supplied via addDiscoveredClass(...).
      * These classes apply strict archive-mode filtering already at ProcessAnnotatedType time.
      */
     private final Set<Class<?>> explicitlyAddedDiscoveredClasses = new HashSet<>();
-
-    private final Map<String, AnnotatedType<?>> additionalAnnotatedTypesForDiscoveredClasses =
-            new LinkedHashMap<>();
 
     private final Map<ProducerBean<?>, Producer<?>> deferredProducerReplacements =
             new IdentityHashMap<>();
@@ -463,7 +440,7 @@ public class Syringe {
             throw new IllegalArgumentException("beanArchiveMode cannot be null");
         }
 
-        this.forcedBeanArchiveMode = beanArchiveMode;
+        knowledgeBase.forcedBeanArchiveMode = beanArchiveMode;
         info("Forced bean archive mode: " + beanArchiveMode);
     }
 
@@ -582,10 +559,10 @@ public class Syringe {
         beforeShutdownFired = false;
         dynamicAnnotationClassLoader = null;
         dynamicAnnotationsRetained = false;
-        processedSyntheticAnnotatedTypeIds.clear();
-        syntheticAnnotatedTypeClasses.clear();
+        knowledgeBase.processedSyntheticAnnotatedTypeIds.clear();
+        knowledgeBase.syntheticAnnotatedTypeClasses.clear();
         explicitlyAddedDiscoveredClasses.clear();
-        additionalAnnotatedTypesForDiscoveredClasses.clear();
+        knowledgeBase.additionalAnnotatedTypesForDiscoveredClasses.clear();
 
         // ============================================================
         // PHASE 1: CONTAINER INITIALIZATION
@@ -659,7 +636,7 @@ public class Syringe {
         }
 
         // Process registered AnnotatedTypes (added programmatically via BeforeBeanDiscovery)
-        processRegisteredAnnotatedTypes();
+        extensionsManager.processRegisteredAnnotatedTypes();
     }
 
     private void filterDiscoveredClassesToRequestedPackages(Set<Class<?>> preexistingDiscoveredClasses) {
@@ -729,7 +706,7 @@ public class Syringe {
             throw new IllegalStateException("Container not yet initialized. Call initialize() first.");
         }
         BeanArchiveMode mode = beanArchiveMode != null ? beanArchiveMode : BeanArchiveMode.IMPLICIT;
-        BeanArchiveMode effectiveMode = effectiveBeanArchiveMode(mode);
+        BeanArchiveMode effectiveMode = knowledgeBase.effectiveBeanArchiveMode(mode);
         if (knowledgeBase.getClasses().contains(clazz)) {
             if (!explicitlyAdded) {
                 // Managed runtimes can report classes already added during BCE discovery.
@@ -815,7 +792,7 @@ public class Syringe {
             // - Wrap AnnotatedType to customize metadata
             processAnnotatedTypes();
             buildCompatibleExtensionsManager.fireBuildCompatibleExtensionPhase(BceSupportedPhase.ENHANCEMENT);
-            fireAfterTypeDiscovery();
+            extensionsManager.fireAfterTypeDiscovery();
 
             // ============================================================
             // PHASE 3: BEAN PROCESSING
@@ -1089,10 +1066,10 @@ public class Syringe {
         extensionsManager.clear();
         buildCompatibleExtensionsManager.clear();
         customContextsToRegister.clear();
-        processedSyntheticAnnotatedTypeIds.clear();
-        syntheticAnnotatedTypeClasses.clear();
+        knowledgeBase.processedSyntheticAnnotatedTypeIds.clear();
+        knowledgeBase.syntheticAnnotatedTypeClasses.clear();
         explicitlyAddedDiscoveredClasses.clear();
-        additionalAnnotatedTypesForDiscoveredClasses.clear();
+        knowledgeBase.additionalAnnotatedTypesForDiscoveredClasses.clear();
         deferredProducerReplacements.clear();
 
         // Drop runtime metadata references eagerly.
@@ -1119,173 +1096,8 @@ public class Syringe {
     }
 
     // ============================================================
-    // PHASE 1: EXTENSION LOADING
-    // ============================================================
-
-
-
-    // ============================================================
     // PHASE 2: BEAN DISCOVERY EVENTS
     // ============================================================
-
-    /**
-     * Processes AnnotatedTypes that were registered programmatically via BeforeBeanDiscovery.addAnnotatedType().
-     *
-     * <p>These synthetic types are added to the KnowledgeBase classes collection, so they will be
-     * validated and registered as beans during the normal bean processing phase.
-     */
-    private void processRegisteredAnnotatedTypes() {
-        Map<String, AnnotatedType<?>> registeredTypes = knowledgeBase.getRegisteredAnnotatedTypes();
-
-        if (registeredTypes.isEmpty()) {
-            info("No registered AnnotatedTypes to process");
-            return;
-        }
-
-        info("Processing " + registeredTypes.size() + " registered AnnotatedTypes");
-
-        for (Map.Entry<String, AnnotatedType<?>> entry : registeredTypes.entrySet()) {
-            String id = entry.getKey();
-            if (processedSyntheticAnnotatedTypeIds.contains(id)) {
-                continue;
-            }
-            AnnotatedType<?> annotatedType = entry.getValue();
-            Class<?> clazz = annotatedType.getJavaClass();
-            boolean alreadyDiscovered = knowledgeBase.getClasses().contains(clazz);
-            Extension sourceExtension = knowledgeBase.getRegisteredAnnotatedTypeSource(id);
-
-            info("Processing registered AnnotatedType: " + clazz.getName() + " (ID: " + id + ")");
-
-            if (shouldSkipProcessAnnotatedTypeEvent(clazz)) {
-                if (!alreadyDiscovered) {
-                    knowledgeBase.vetoType(clazz);
-                }
-                processedSyntheticAnnotatedTypeIds.add(id);
-                continue;
-            }
-
-            @SuppressWarnings({"rawtypes", "unchecked"})
-            ProcessSyntheticAnnotatedTypeImpl<?> event = new ProcessSyntheticAnnotatedTypeImpl(
-                    messageHandler,
-                    annotatedType,
-                    sourceExtension);
-            extensionsManager.fireEventToExtensions(event);
-
-            if (event.isVetoed()) {
-                if (!alreadyDiscovered) {
-                    knowledgeBase.vetoType(clazz);
-                }
-                processedSyntheticAnnotatedTypeIds.add(id);
-                continue;
-            }
-
-            AnnotatedType<?> finalAnnotatedType = event.getAnnotatedTypeInternal();
-            if (finalAnnotatedType == null) {
-                finalAnnotatedType = annotatedType;
-            }
-
-            // Add the class to KnowledgeBase so it will be processed as a bean candidate.
-            // Only mark it as synthetic-only when it was not already discovered on the classpath.
-            if (alreadyDiscovered) {
-                // CDI 4.1: addAnnotatedType() for an already discovered Java class contributes
-                // an additional bean definition. Keep discovered class metadata untouched and
-                // register this AnnotatedType as an extra bean during validation.
-                additionalAnnotatedTypesForDiscoveredClasses.put(id, finalAnnotatedType);
-                processedSyntheticAnnotatedTypeIds.add(id);
-                continue;
-            }
-            knowledgeBase.addProgrammatic(
-                    clazz,
-                    resolveProgrammaticAnnotatedTypeArchiveMode(clazz, sourceExtension));
-            syntheticAnnotatedTypeClasses.add(clazz);
-            knowledgeBase.setAnnotatedTypeOverride(clazz, finalAnnotatedType);
-            processedSyntheticAnnotatedTypeIds.add(id);
-        }
-
-        info("Total classes after registered types: " + knowledgeBase.getClasses().size());
-    }
-
-    private BeanArchiveMode resolveProgrammaticAnnotatedTypeArchiveMode(Class<?> clazz,
-                                                                        Extension sourceExtension) {
-        if (forcedBeanArchiveMode != null) {
-            return forcedBeanArchiveMode;
-        }
-
-        BeanArchiveMode classMode = modeOfKnownClass(clazz);
-        if (classMode != null) {
-            return effectiveBeanArchiveMode(classMode);
-        }
-
-        if (sourceExtension != null) {
-            BeanArchiveMode sourceMode = modeOfKnownClass(sourceExtension.getClass());
-            if (sourceMode != null) {
-                return effectiveBeanArchiveMode(sourceMode);
-            }
-        }
-
-        BeanArchiveMode beansXmlMode = resolveProgrammaticArchiveModeFromBeansXml();
-        if (beansXmlMode != null) {
-            return effectiveBeanArchiveMode(beansXmlMode);
-        }
-
-        return effectiveBeanArchiveMode(BeanArchiveMode.IMPLICIT);
-    }
-
-    private BeanArchiveMode modeOfKnownClass(Class<?> candidate) {
-        if (candidate == null || !knowledgeBase.getClasses().contains(candidate)) {
-            return null;
-        }
-        return knowledgeBase.getBeanArchiveMode(candidate);
-    }
-
-    private BeanArchiveMode resolveProgrammaticArchiveModeFromBeansXml() {
-        BeanArchiveMode resolvedMode = null;
-        for (BeansXml beansXml : knowledgeBase.getBeansXmlConfigurations()) {
-            if (beansXml == null) {
-                continue;
-            }
-            String discoveryMode = beansXml.getBeanDiscoveryMode();
-            if (discoveryMode == null) {
-                continue;
-            }
-            String normalizedMode = discoveryMode.trim().toLowerCase(Locale.ROOT);
-            if ("all".equals(normalizedMode) || isLegacyAllByDefaultDescriptor(beansXml, normalizedMode)) {
-                BeanArchiveMode mode = beansXml.isTrimEnabled() ? BeanArchiveMode.TRIMMED : BeanArchiveMode.EXPLICIT;
-                if (BeanArchiveMode.TRIMMED.equals(mode)) {
-                    return mode;
-                }
-                resolvedMode = mode;
-            }
-        }
-        return resolvedMode;
-    }
-
-    private boolean isLegacyAllByDefaultDescriptor(BeansXml beansXml, String normalizedMode) {
-        if (beansXml == null || !"annotated".equals(normalizedMode)) {
-            return false;
-        }
-        // CDI 1.0 legacy descriptor semantics (java.sun namespace + no discovery mode attribute)
-        // default to "all"; modern empty beans.xml defaults to "annotated".
-        if (beansXml.isBeanDiscoveryModeDeclared() || beansXml.isNotLegacyJavaSunDescriptor()) {
-            return false;
-        }
-        String version = beansXml.getVersion();
-        if (version == null || version.trim().isEmpty()) {
-            return true;
-        }
-        String trimmed = version.trim();
-        if ("1".equals(trimmed) || "1.0".equals(trimmed)) {
-            return true;
-        }
-        try {
-            String[] parts = trimmed.split("\\.");
-            int major = Integer.parseInt(parts[0]);
-            int minor = parts.length > 1 ? Integer.parseInt(parts[1]) : 0;
-            return major < 1 || (major == 1 && minor == 0);
-        } catch (NumberFormatException ignored) {
-            return false;
-        }
-    }
 
     /**
      * Fires ProcessAnnotatedType<T> event for each discovered type.
@@ -1314,7 +1126,7 @@ public class Syringe {
         int excludedCount = 0;
         for (Class<?> clazz : new ArrayList<>(knowledgeBase.getClasses())) {
             try {
-                if (syntheticAnnotatedTypeClasses.contains(clazz)) {
+                if (knowledgeBase.syntheticAnnotatedTypeClasses.contains(clazz)) {
                     continue;
                 }
                 if (shouldBypassProcessAnnotatedTypeEvent(clazz)) {
@@ -1371,19 +1183,6 @@ public class Syringe {
         return ActivateRequestContextInterceptor.class.equals(clazz);
     }
 
-    private boolean shouldSkipProcessAnnotatedTypeEvent(Class<?> clazz) {
-        if (clazz == null) {
-            return true;
-        }
-        if (clazz.isAnnotation()) {
-            return true;
-        }
-        if (hasVetoedAnnotation(clazz)) {
-            return true;
-        }
-        return isPackageOrParentPackageVetoed(clazz.getPackage());
-    }
-
     private boolean shouldIncludeTypeInDiscoveryForArchiveMode(Class<?> clazz) {
         BeanArchiveMode mode = knowledgeBase.getBeanArchiveMode(clazz);
         if (mode == null) {
@@ -1398,7 +1197,7 @@ public class Syringe {
         // TRIMMED mode behavior differs by bootstrap path:
         // - forced/manual-trimmed discovery is already narrowed to bean-defining types
         // - scanner-derived trimmed discovery keeps PAT visibility of discovered types
-        boolean trimAtTypeDiscovery = BeanArchiveMode.TRIMMED.equals(forcedBeanArchiveMode)
+        boolean trimAtTypeDiscovery = BeanArchiveMode.TRIMMED.equals(knowledgeBase.forcedBeanArchiveMode)
                 || explicitlyAddedDiscoveredClasses.contains(clazz);
         if (BeanArchiveMode.TRIMMED.equals(mode)) {
             if (!trimAtTypeDiscovery) {
@@ -1442,284 +1241,8 @@ public class Syringe {
         if (hasNormalScopeAnnotation(annotationType) || hasBuiltInNormalScopeAnnotation(annotationType)) {
             return true;
         }
-        com.threeamigos.common.util.implementations.injection.knowledgebase.ScopeMetadata metadata =
-                knowledgeBase.getScopeMetadata(annotationType);
+        ScopeMetadata metadata = knowledgeBase.getScopeMetadata(annotationType);
         return metadata != null && metadata.isNormal();
-    }
-
-    private boolean isStereotype(Class<? extends Annotation> annotationType) {
-        if (annotationType == null) {
-            return false;
-        }
-        return hasStereotypeAnnotation(annotationType);
-    }
-
-    private boolean isPackageOrParentPackageVetoed(Package pkg) {
-        if (pkg == null) {
-            return false;
-        }
-        if (hasVetoedAnnotation(pkg)) {
-            return true;
-        }
-        String packageName = pkg.getName();
-        while (packageName.contains(".")) {
-            packageName = packageName.substring(0, packageName.lastIndexOf('.'));
-            try {
-                Class<?> packageInfo = Class.forName(packageName + ".package-info");
-                Package parent = packageInfo.getPackage();
-                if (hasVetoedAnnotation(parent)) {
-                    return true;
-                }
-            } catch (ClassNotFoundException ignored) {
-                // No package-info, continue with next parent package.
-            }
-        }
-        return false;
-    }
-
-    private void fireAfterTypeDiscovery() {
-        info("Firing AfterTypeDiscovery event");
-
-        List<Class<?>> alternatives = collectPriorityEnabledAlternatives();
-        List<Class<?>> interceptors = collectPriorityEnabledInterceptors();
-        List<Class<?>> decorators = collectPriorityEnabledDecorators();
-        List<Class<?>> initialAlternatives = new ArrayList<>(alternatives);
-        List<Class<?>> initialInterceptors = new ArrayList<>(interceptors);
-        List<Class<?>> initialDecorators = new ArrayList<>(decorators);
-
-        AfterTypeDiscovery event = new AfterTypeDiscoveryImpl(
-                messageHandler, knowledgeBase, beanManager, alternatives, interceptors, decorators);
-        extensionsManager.fireEventToExtensions(event);
-        processRegisteredAnnotatedTypes();
-
-        knowledgeBase.setApplicationAlternativeOrder(alternatives);
-        knowledgeBase.setApplicationInterceptorOrder(interceptors);
-        knowledgeBase.setApplicationDecoratorOrder(decorators);
-        knowledgeBase.setAfterTypeDiscoveryAlternativesCustomized(!initialAlternatives.equals(alternatives));
-        knowledgeBase.setAfterTypeDiscoveryInterceptorsCustomized(!initialInterceptors.equals(interceptors));
-        knowledgeBase.setAfterTypeDiscoveryDecoratorsCustomized(!initialDecorators.equals(decorators));
-    }
-
-    private List<Class<?>> collectPriorityEnabledAlternatives() {
-        List<Class<?>> enabled = new ArrayList<>();
-        for (Class<?> candidate : knowledgeBase.getClasses()) {
-            if (!hasAlternativeAnnotation(candidate)) {
-                continue;
-            }
-            Integer priority = getEffectivePriority(candidate);
-            if (priority == null) {
-                continue;
-            }
-            if (!enabled.contains(candidate)) {
-                enabled.add(candidate);
-            }
-        }
-        enabled.sort(Comparator
-                .comparingInt((Class<?> clazz) -> {
-                    Integer priority = getEffectivePriority(clazz);
-                    return priority != null ? priority : Integer.MAX_VALUE;
-                })
-                .thenComparing(Class::getName));
-        return enabled;
-    }
-
-    private List<Class<?>> collectPriorityEnabledInterceptors() {
-        List<Class<?>> enabled = new ArrayList<>();
-        for (Class<?> candidate : knowledgeBase.getClasses()) {
-            if (!hasInterceptorAnnotation(candidate)) {
-                continue;
-            }
-            if (ActivateRequestContextInterceptor.class.equals(candidate)) {
-                continue;
-            }
-            Integer priority = getEffectivePriority(candidate);
-            if (priority == null) {
-                continue;
-            }
-            if (!enabled.contains(candidate)) {
-                enabled.add(candidate);
-            }
-        }
-        enabled.sort(Comparator
-                .comparingInt((Class<?> clazz) -> {
-                    Integer priority = getEffectivePriority(clazz);
-                    return priority != null ? priority : Integer.MAX_VALUE;
-                })
-                .thenComparing(Class::getName));
-        return enabled;
-    }
-
-    private List<Class<?>> collectPriorityEnabledDecorators() {
-        List<Class<?>> enabled = new ArrayList<>();
-        for (Class<?> candidate : knowledgeBase.getClasses()) {
-            if (!hasDecoratorAnnotation(candidate)) {
-                continue;
-            }
-            Integer priority = getEffectivePriority(candidate);
-            if (priority == null) {
-                continue;
-            }
-            if (!enabled.contains(candidate)) {
-                enabled.add(candidate);
-            }
-        }
-        enabled.sort(Comparator
-                .comparingInt((Class<?> clazz) -> {
-                    Integer priority = getEffectivePriority(clazz);
-                    return priority != null ? priority : Integer.MAX_VALUE;
-                })
-                .thenComparing(Class::getName));
-        return enabled;
-    }
-
-    private Integer getEffectivePriority(Class<?> candidate) {
-        if (candidate == null) {
-            return null;
-        }
-
-        Integer directPriority = getDirectPriority(candidate);
-        if (directPriority != null) {
-            return directPriority;
-        }
-
-        Set<Integer> stereotypePriorities = collectStereotypePriorityValues(candidate);
-        if (stereotypePriorities.size() == 1) {
-            return stereotypePriorities.iterator().next();
-        }
-
-        return extractPrioritizedInterfacePriority(candidate);
-    }
-
-    private Integer getDirectPriority(Class<?> candidate) {
-        Integer directPriority = getPriorityValue(candidate);
-        if (directPriority != null) {
-            return directPriority;
-        }
-
-        AnnotatedType<?> override = knowledgeBase.getAnnotatedTypeOverride(candidate);
-        if (override == null) {
-            return null;
-        }
-
-        for (Annotation annotation : override.getAnnotations()) {
-            Integer value = extractPriorityValue(annotation);
-            if (value != null) {
-                return value;
-            }
-        }
-        return null;
-    }
-
-    private Set<Integer> collectStereotypePriorityValues(Class<?> candidate) {
-        Set<Integer> priorities = new LinkedHashSet<>();
-        if (candidate == null) {
-            return priorities;
-        }
-
-        Set<Class<? extends Annotation>> visited = new HashSet<>();
-        for (Annotation annotation : effectiveClassAnnotations(candidate)) {
-            Class<? extends Annotation> annotationType = annotation.annotationType();
-            if (hasStereotypeAnnotation(annotationType)) {
-                collectStereotypePriorityValues(annotationType, priorities, visited);
-            }
-        }
-        return priorities;
-    }
-
-    private Set<Integer> collectStereotypePriorityValues(Set<Class<? extends Annotation>> stereotypes) {
-        Set<Integer> priorities = new LinkedHashSet<>();
-        if (stereotypes == null || stereotypes.isEmpty()) {
-            return priorities;
-        }
-        Set<Class<? extends Annotation>> visited = new HashSet<>();
-        for (Class<? extends Annotation> stereotype : stereotypes) {
-            if (stereotype == null) {
-                continue;
-            }
-            collectStereotypePriorityValues(stereotype, priorities, visited);
-        }
-        return priorities;
-    }
-
-    private void collectStereotypePriorityValues(Class<? extends Annotation> stereotypeType,
-                                                 Set<Integer> priorities,
-                                                 Set<Class<? extends Annotation>> visited) {
-        if (stereotypeType == null || !visited.add(stereotypeType)) {
-            return;
-        }
-
-        Integer declaredPriority = getPriorityValueFromAnnotations(stereotypeType.getAnnotations());
-        if (declaredPriority == null && knowledgeBase.isRegisteredStereotype(stereotypeType)) {
-            Set<Annotation> definition = knowledgeBase.getStereotypeDefinition(stereotypeType);
-            if (definition != null) {
-                declaredPriority = getPriorityValueFromAnnotations(definition.toArray(new Annotation[0]));
-            }
-        }
-        if (declaredPriority != null) {
-            priorities.add(declaredPriority);
-        }
-
-        for (Annotation meta : stereotypeType.getAnnotations()) {
-            Class<? extends Annotation> metaType = meta.annotationType();
-            if (hasStereotypeAnnotation(metaType)) {
-                collectStereotypePriorityValues(metaType, priorities, visited);
-            }
-        }
-
-        if (knowledgeBase.isRegisteredStereotype(stereotypeType)) {
-            Set<Annotation> definition = knowledgeBase.getStereotypeDefinition(stereotypeType);
-            if (definition != null) {
-                for (Annotation meta : definition) {
-                    if (meta == null) {
-                        continue;
-                    }
-                    Class<? extends Annotation> metaType = meta.annotationType();
-                    if (hasStereotypeAnnotation(metaType)) {
-                        collectStereotypePriorityValues(metaType, priorities, visited);
-                    }
-                }
-            }
-        }
-    }
-
-    private Annotation[] effectiveClassAnnotations(Class<?> candidate) {
-        AnnotatedType<?> override = knowledgeBase.getAnnotatedTypeOverride(candidate);
-        if (override != null) {
-            return override.getAnnotations().toArray(new Annotation[0]);
-        }
-        return candidate.getAnnotations();
-    }
-
-    private Integer extractPrioritizedInterfacePriority(Class<?> candidate) {
-        if (candidate == null || !Prioritized.class.isAssignableFrom(candidate)) {
-            return null;
-        }
-        if (candidate.isInterface() || Modifier.isAbstract(candidate.getModifiers())) {
-            return null;
-        }
-
-        try {
-            Constructor<?> constructor = candidate.getDeclaredConstructor();
-            if (!constructor.isAccessible()) {
-                constructor.setAccessible(true);
-            }
-            Prioritized prioritized = (Prioritized) constructor.newInstance();
-            return prioritized.getPriority();
-        } catch (ReflectiveOperationException | RuntimeException ignored) {
-            return null;
-        }
-    }
-
-    private Integer extractPriorityValue(Annotation annotation) {
-        if (annotation == null || !PRIORITY.matches(annotation.annotationType())) {
-            return null;
-        }
-        try {
-            Object value = annotation.annotationType().getMethod("value").invoke(annotation);
-            return value instanceof Integer ? (Integer) value : null;
-        } catch (Exception ignored) {
-            return null;
-        }
     }
 
     // ============================================================
@@ -1751,7 +1274,7 @@ public class Syringe {
             try {
                 // Effective mode honors forced override when configured; otherwise uses
                 // the mode detected during scanning and recorded in KnowledgeBase.
-                BeanArchiveMode mode = effectiveBeanArchiveMode(knowledgeBase.getBeanArchiveMode(clazz));
+                BeanArchiveMode mode = knowledgeBase.effectiveBeanArchiveMode(knowledgeBase.getBeanArchiveMode(clazz));
                 AnnotatedType<?> override = knowledgeBase.getAnnotatedTypeOverride(clazz);
                 validator.validateAndRegisterRaw(clazz, mode, override);
                 validated++;
@@ -1768,12 +1291,12 @@ public class Syringe {
     }
 
     private int registerAdditionalAnnotatedTypeBeans(CDI41BeanValidator validator) {
-        if (additionalAnnotatedTypesForDiscoveredClasses.isEmpty()) {
+        if (knowledgeBase.additionalAnnotatedTypesForDiscoveredClasses.isEmpty()) {
             return 0;
         }
 
         int registered = 0;
-        for (Map.Entry<String, AnnotatedType<?>> entry : additionalAnnotatedTypesForDiscoveredClasses.entrySet()) {
+        for (Map.Entry<String, AnnotatedType<?>> entry : knowledgeBase.additionalAnnotatedTypesForDiscoveredClasses.entrySet()) {
             String id = entry.getKey();
             AnnotatedType<?> annotatedType = entry.getValue();
             if (annotatedType == null) {
@@ -1786,7 +1309,7 @@ public class Syringe {
             }
 
             try {
-                BeanArchiveMode mode = effectiveBeanArchiveMode(knowledgeBase.getBeanArchiveMode(clazz));
+                BeanArchiveMode mode = knowledgeBase.effectiveBeanArchiveMode(knowledgeBase.getBeanArchiveMode(clazz));
                 BeanImpl<?> bean = validator.validateAndRegisterRaw(clazz, mode, annotatedType);
                 if (bean != null) {
                     registered++;
@@ -2020,7 +1543,7 @@ public class Syringe {
         }
 
         int priority = existing != null ? existing.getPriority() : Integer.MAX_VALUE;
-        Integer configuredPriority = getEffectivePriority(decoratorClass);
+        Integer configuredPriority = knowledgeBase.getEffectivePriority(decoratorClass);
         if (configuredPriority != null) {
             priority = configuredPriority;
         }
@@ -3385,7 +2908,7 @@ public class Syringe {
         }
 
         Class<?> declaringClass = producerBean.getBeanClass();
-        return isAlternativeEnabledAfterBeanAttributes(declaringClass, resolveClassStereotypes(declaringClass));
+        return isAlternativeEnabledAfterBeanAttributes(declaringClass, knowledgeBase.getClassStereotypes(declaringClass));
     }
 
     private Integer resolveProducerMemberPriority(ProducerBean<?> producerBean) {
@@ -3424,28 +2947,11 @@ public class Syringe {
     }
 
     private Integer resolveSingleStereotypePriority(Set<Class<? extends Annotation>> stereotypes) {
-        Set<Integer> priorities = collectStereotypePriorityValues(stereotypes);
+        Set<Integer> priorities = knowledgeBase.collectStereotypePriorityValues(stereotypes);
         if (priorities.size() == 1) {
             return priorities.iterator().next();
         }
         return null;
-    }
-
-    private Set<Class<? extends Annotation>> resolveClassStereotypes(Class<?> beanClass) {
-        Set<Class<? extends Annotation>> stereotypes = new LinkedHashSet<>();
-        if (beanClass == null) {
-            return stereotypes;
-        }
-        for (Annotation annotation : effectiveClassAnnotations(beanClass)) {
-            if (annotation == null) {
-                continue;
-            }
-            Class<? extends Annotation> annotationType = annotation.annotationType();
-            if (hasStereotypeAnnotation(annotationType)) {
-                stereotypes.add(annotationType);
-            }
-        }
-        return stereotypes;
     }
 
     private boolean isAlternativeEnabledAfterBeanAttributes(Class<?> beanClass,
@@ -3491,14 +2997,14 @@ public class Syringe {
 
     private Integer resolveEffectivePriorityAfterBeanAttributes(Class<?> beanClass,
                                                                 Set<Class<? extends Annotation>> stereotypes) {
-        Integer directPriority = getDirectPriority(beanClass);
+        Integer directPriority = knowledgeBase.getDirectPriority(beanClass);
         if (directPriority != null) {
             return directPriority;
         }
 
         Set<Integer> stereotypePriorities = (stereotypes == null || stereotypes.isEmpty())
-                ? collectStereotypePriorityValues(beanClass)
-                : collectStereotypePriorityValues(stereotypes);
+                ? knowledgeBase.collectStereotypePriorityValues(beanClass)
+                : knowledgeBase.collectStereotypePriorityValues(stereotypes);
         if (stereotypePriorities.size() == 1) {
             return stereotypePriorities.iterator().next();
         }
@@ -4796,15 +4302,8 @@ public class Syringe {
         return knowledgeBase;
     }
 
-    private BeanArchiveMode effectiveBeanArchiveMode(BeanArchiveMode discoveredMode) {
-        if (forcedBeanArchiveMode != null) {
-            return forcedBeanArchiveMode;
-        }
-        return discoveredMode != null ? discoveredMode : BeanArchiveMode.IMPLICIT;
-    }
-
     private void applyForcedArchiveModeOverride() {
-        if (forcedBeanArchiveMode == null) {
+        if (knowledgeBase.forcedBeanArchiveMode == null) {
             return;
         }
 
@@ -4813,14 +4312,14 @@ public class Syringe {
         // entries will be validated/registered.
         int updated = 0;
         for (Class<?> clazz : knowledgeBase.getClasses()) {
-            knowledgeBase.setBeanArchiveMode(clazz, forcedBeanArchiveMode);
+            knowledgeBase.setBeanArchiveMode(clazz, knowledgeBase.forcedBeanArchiveMode);
             updated++;
         }
-        info("Applied forced bean archive mode " + forcedBeanArchiveMode + " to " + updated + " class(es)");
+        info("Applied forced bean archive mode " + knowledgeBase.forcedBeanArchiveMode + " to " + updated + " class(es)");
     }
 
     private void applyBeansXmlAllModeOverrideForExactPackageBootstrap() {
-        if (!exactPackageMatchOnly || forcedBeanArchiveMode != null) {
+        if (!exactPackageMatchOnly || knowledgeBase.forcedBeanArchiveMode != null) {
             return;
         }
 

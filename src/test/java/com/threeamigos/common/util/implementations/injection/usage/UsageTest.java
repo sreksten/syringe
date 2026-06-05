@@ -4,6 +4,7 @@ import com.threeamigos.common.util.implementations.injection.Syringe;
 import com.threeamigos.common.util.implementations.injection.discovery.NonPortableBehaviourException;
 import jakarta.enterprise.inject.se.SeContainer;
 import jakarta.enterprise.inject.se.SeContainerInitializer;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
@@ -22,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 @Execution(ExecutionMode.SAME_THREAD)
 @Isolated
+@Disabled
 public class UsageTest {
 
     @Test

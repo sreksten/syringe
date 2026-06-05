@@ -45,7 +45,16 @@ public interface ExtensionsManager {
      */
     void fireBeforeBeanDiscovery();
 
+    void fireAfterTypeDiscovery();
+
     <T> void fireEventToExtensions(T event);
+    /**
+     * Processes AnnotatedTypes that were registered programmatically via BeforeBeanDiscovery.addAnnotatedType().
+     *
+     * <p>These synthetic types are added to the KnowledgeBase classes collection, so they will be
+     * validated and registered as beans during the normal bean processing phase.
+     */
+    void processRegisteredAnnotatedTypes();
 
     void clear();
 }

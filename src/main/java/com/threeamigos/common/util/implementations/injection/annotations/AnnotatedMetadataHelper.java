@@ -312,4 +312,59 @@ public final class AnnotatedMetadataHelper {
                 hasAnyAnnotation(qualifierAnnotations.get(0).annotationType());
     }
 
+    public static Integer extractPriorityValue(Annotation annotation) {
+        if (annotation == null || !PRIORITY.matches(annotation.annotationType())) {
+            return null;
+        }
+        try {
+            Object value = annotation.annotationType().getMethod("value").invoke(annotation);
+            return value instanceof Integer ? (Integer) value : null;
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    public static boolean isStereotype(Class<? extends Annotation> annotationType) {
+        if (annotationType == null) {
+            return false;
+        }
+        return hasStereotypeAnnotation(annotationType);
+    }
+
+    public static boolean shouldSkipProcessAnnotatedTypeEvent(Class<?> clazz) {
+        if (clazz == null) {
+            return true;
+        }
+        if (clazz.isAnnotation()) {
+            return true;
+        }
+        if (hasVetoedAnnotation(clazz)) {
+            return true;
+        }
+        return isPackageOrParentPackageVetoed(clazz.getPackage());
+    }
+
+    public static boolean isPackageOrParentPackageVetoed(Package pkg) {
+        if (pkg == null) {
+            return false;
+        }
+        if (hasVetoedAnnotation(pkg)) {
+            return true;
+        }
+        String packageName = pkg.getName();
+        while (packageName.contains(".")) {
+            packageName = packageName.substring(0, packageName.lastIndexOf('.'));
+            try {
+                Class<?> packageInfo = Class.forName(packageName + ".package-info");
+                Package parent = packageInfo.getPackage();
+                if (hasVetoedAnnotation(parent)) {
+                    return true;
+                }
+            } catch (ClassNotFoundException ignored) {
+                // No package-info, continue with next parent package.
+            }
+        }
+        return false;
+    }
+
 }

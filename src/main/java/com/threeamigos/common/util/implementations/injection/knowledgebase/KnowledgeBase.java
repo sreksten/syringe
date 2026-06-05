@@ -22,8 +22,34 @@ import java.lang.reflect.Constructor;
 import java.util.*;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AlternativesHelper.isAlternativeViaAnnotationOrStereotype;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotatedMetadataHelper.extractPriorityValue;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotatedMetadataHelper.getPriorityValueFromAnnotations;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationExtractors.getPriorityValue;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.hasStereotypeAnnotation;
+import static com.threeamigos.common.util.implementations.injection.spi.SPIUtils.extractPrioritizedInterfacePriority;
 
 public class KnowledgeBase {
+
+
+    public final Set<Class<?>> syntheticAnnotatedTypeClasses = new HashSet<>();
+
+    public final Map<String, AnnotatedType<?>> additionalAnnotatedTypesForDiscoveredClasses =
+            new LinkedHashMap<>();
+
+    public final Set<String> processedSyntheticAnnotatedTypeIds = new HashSet<>();
+
+    /**
+     * Optional forced bean archive mode used during validation/discovery processing.
+     * When set, this mode overrides detected archive mode for all classes that are
+     * already discovered and present in the KnowledgeBase.
+     *
+     * <p>Important limitation: this does not alter scanner-time archive detection.
+     * If an archive is skipped by the scanner because it is detected as
+     * bean-discovery-mode="none", those classes are never added and therefore cannot
+     * be affected by this override.
+     */
+    public BeanArchiveMode forcedBeanArchiveMode;
+
 
     private final MessageHandler messageHandler;
     private final KnowledgeBaseDiscoveryStore discoveryStore = new KnowledgeBaseDiscoveryStore();
@@ -989,4 +1015,149 @@ public class KnowledgeBase {
         extensionRegistrationStore.clear();
         enablementStore.clear();
     }
+
+    // Utility methods
+
+    public Annotation[] getEffectiveClassAnnotations(Class<?> candidate) {
+        AnnotatedType<?> override = getAnnotatedTypeOverride(candidate);
+        if (override != null) {
+            return override.getAnnotations().toArray(new Annotation[0]);
+        }
+        return candidate.getAnnotations();
+    }
+
+    public Set<Class<? extends Annotation>> getClassStereotypes(Class<?> beanClass) {
+        Set<Class<? extends Annotation>> stereotypes = new LinkedHashSet<>();
+        if (beanClass == null) {
+            return stereotypes;
+        }
+        for (Annotation annotation : getEffectiveClassAnnotations(beanClass)) {
+            if (annotation == null) {
+                continue;
+            }
+            Class<? extends Annotation> annotationType = annotation.annotationType();
+            if (hasStereotypeAnnotation(annotationType)) {
+                stereotypes.add(annotationType);
+            }
+        }
+        return stereotypes;
+    }
+
+    public void collectStereotypePriorityValues(Class<? extends Annotation> stereotypeType,
+                                                 Set<Integer> priorities,
+                                                 Set<Class<? extends Annotation>> visited) {
+        if (stereotypeType == null || !visited.add(stereotypeType)) {
+            return;
+        }
+
+        Integer declaredPriority = getPriorityValueFromAnnotations(stereotypeType.getAnnotations());
+        if (declaredPriority == null && isRegisteredStereotype(stereotypeType)) {
+            Set<Annotation> definition = getStereotypeDefinition(stereotypeType);
+            if (definition != null) {
+                declaredPriority = getPriorityValueFromAnnotations(definition.toArray(new Annotation[0]));
+            }
+        }
+        if (declaredPriority != null) {
+            priorities.add(declaredPriority);
+        }
+
+        for (Annotation meta : stereotypeType.getAnnotations()) {
+            Class<? extends Annotation> metaType = meta.annotationType();
+            if (hasStereotypeAnnotation(metaType)) {
+                collectStereotypePriorityValues(metaType, priorities, visited);
+            }
+        }
+
+        if (isRegisteredStereotype(stereotypeType)) {
+            Set<Annotation> definition = getStereotypeDefinition(stereotypeType);
+            if (definition != null) {
+                for (Annotation meta : definition) {
+                    if (meta == null) {
+                        continue;
+                    }
+                    Class<? extends Annotation> metaType = meta.annotationType();
+                    if (hasStereotypeAnnotation(metaType)) {
+                        collectStereotypePriorityValues(metaType, priorities, visited);
+                    }
+                }
+            }
+        }
+    }
+
+    public Set<Integer> collectStereotypePriorityValues(Set<Class<? extends Annotation>> stereotypes) {
+        Set<Integer> priorities = new LinkedHashSet<>();
+        if (stereotypes == null || stereotypes.isEmpty()) {
+            return priorities;
+        }
+        Set<Class<? extends Annotation>> visited = new HashSet<>();
+        for (Class<? extends Annotation> stereotype : stereotypes) {
+            if (stereotype == null) {
+                continue;
+            }
+            collectStereotypePriorityValues(stereotype, priorities, visited);
+        }
+        return priorities;
+    }
+
+    public Set<Integer> collectStereotypePriorityValues(Class<?> candidate) {
+        Set<Integer> priorities = new LinkedHashSet<>();
+        if (candidate == null) {
+            return priorities;
+        }
+
+        Set<Class<? extends Annotation>> visited = new HashSet<>();
+        for (Annotation annotation : getEffectiveClassAnnotations(candidate)) {
+            Class<? extends Annotation> annotationType = annotation.annotationType();
+            if (hasStereotypeAnnotation(annotationType)) {
+                collectStereotypePriorityValues(annotationType, priorities, visited);
+            }
+        }
+        return priorities;
+    }
+
+    public Integer getDirectPriority(Class<?> candidate) {
+        Integer directPriority = getPriorityValue(candidate);
+        if (directPriority != null) {
+            return directPriority;
+        }
+
+        AnnotatedType<?> override = getAnnotatedTypeOverride(candidate);
+        if (override == null) {
+            return null;
+        }
+
+        for (Annotation annotation : override.getAnnotations()) {
+            Integer value = extractPriorityValue(annotation);
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    public Integer getEffectivePriority(Class<?> candidate) {
+        if (candidate == null) {
+            return null;
+        }
+
+        Integer directPriority = getDirectPriority(candidate);
+        if (directPriority != null) {
+            return directPriority;
+        }
+
+        Set<Integer> stereotypePriorities = collectStereotypePriorityValues(candidate);
+        if (stereotypePriorities.size() == 1) {
+            return stereotypePriorities.iterator().next();
+        }
+
+        return extractPrioritizedInterfacePriority(candidate);
+    }
+
+    public BeanArchiveMode effectiveBeanArchiveMode(BeanArchiveMode discoveredMode) {
+        if (forcedBeanArchiveMode != null) {
+            return forcedBeanArchiveMode;
+        }
+        return discoveredMode != null ? discoveredMode : BeanArchiveMode.IMPLICIT;
+    }
+
 }

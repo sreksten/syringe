@@ -2,12 +2,15 @@ package com.threeamigos.common.util.implementations.injection.spi;
 
 import com.threeamigos.common.util.implementations.injection.bce.BceRegistrationContext;
 import jakarta.enterprise.inject.build.compatible.spi.*;
+import jakarta.enterprise.inject.spi.Prioritized;
 import jakarta.enterprise.lang.model.declarations.ClassInfo;
 import jakarta.enterprise.lang.model.declarations.FieldInfo;
 import jakarta.enterprise.lang.model.declarations.MethodInfo;
 import jakarta.enterprise.lang.model.declarations.ParameterInfo;
 
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Modifier;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -145,6 +148,26 @@ public class SPIUtils {
             current = current.getSuperclass();
         }
         return typeNames;
+    }
+
+    public static Integer extractPrioritizedInterfacePriority(Class<?> candidate) {
+        if (candidate == null || !Prioritized.class.isAssignableFrom(candidate)) {
+            return null;
+        }
+        if (candidate.isInterface() || Modifier.isAbstract(candidate.getModifiers())) {
+            return null;
+        }
+
+        try {
+            Constructor<?> constructor = candidate.getDeclaredConstructor();
+            if (!constructor.isAccessible()) {
+                constructor.setAccessible(true);
+            }
+            Prioritized prioritized = (Prioritized) constructor.newInstance();
+            return prioritized.getPriority();
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+            return null;
+        }
     }
 
 }
