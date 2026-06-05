@@ -135,8 +135,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
     public BeanManagerImpl(KnowledgeBase knowledgeBase, ContextManager contextManager) {
         this.knowledgeBase = Objects.requireNonNull(knowledgeBase, "knowledgeBase cannot be null");
         this.contextManager = Objects.requireNonNull(contextManager, "contextManager cannot be null");
-        this.beanResolver = new BeanResolver(knowledgeBase, contextManager,
-            TransactionServicesFactory.create());
+        this.beanResolver = new BeanResolver(knowledgeBase, contextManager, TransactionServicesFactory.create());
         this.beanManagerId = UUID.randomUUID().toString();
         this.beanResolver.setOwningBeanManager(this);
         this.typeChecker = new TypeChecker();

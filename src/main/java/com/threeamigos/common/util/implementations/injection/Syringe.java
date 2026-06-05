@@ -67,6 +67,7 @@ import jakarta.enterprise.inject.AmbiguousResolutionException;
 import jakarta.enterprise.inject.IllegalProductException;
 import jakarta.enterprise.inject.UnsatisfiedResolutionException;
 import jakarta.enterprise.inject.build.compatible.spi.BuildCompatibleExtension;
+import jakarta.enterprise.inject.build.compatible.spi.SkipIfPortableExtensionPresent;
 import jakarta.enterprise.inject.spi.*;
 
 import java.io.BufferedReader;
@@ -152,6 +153,7 @@ public class Syringe {
      * Package names to scan for beans.
      */
     private final String[] packageNames;
+
     /**
      * If true, keep only classes declared directly in the requested packages.
      * This is used by class-based convenience bootstrap to avoid accidental
@@ -174,10 +176,12 @@ public class Syringe {
      * Extensions must implement jakarta.enterprise.inject.spi.Extension.
      */
     private final Set<String> extensionClassNames = new HashSet<>();
+
     /**
      * Explicitly registered extension instances.
      */
     private final Set<Extension> extensionInstances = new HashSet<>();
+
     /**
      * Set of build-compatible extension class names to be loaded.
      */
@@ -199,6 +203,7 @@ public class Syringe {
      * Loaded extension instances.
      */
     private final List<Extension> extensions = new ArrayList<>();
+
     /**
      * Loaded build compatible extension instances.
      */
@@ -208,6 +213,7 @@ public class Syringe {
      * BCE phase runner.
      */
     private BuildCompatibleExtensionRunner buildCompatibleExtensionRunner;
+
     private final BceInvokerRegistry bceInvokerRegistry = new BceInvokerRegistry();
 
     /**
@@ -219,33 +225,42 @@ public class Syringe {
      * Whether the container has been initialized.
      */
     private boolean initialized = false;
+
     /**
      * Whether a container shutdown has started.
      */
     private boolean shutdownStarted = false;
+
     /**
      * ClassLoader used when retaining dynamic BCE metadata for this container lifecycle.
      */
     private ClassLoader dynamicAnnotationClassLoader;
+
     /**
      * Whether this container lifecycle retained dynamic BCE metadata.
      */
     private boolean dynamicAnnotationsRetained = false;
+
     /**
      * Whether BeforeBeanDiscovery has already been fired for this container lifecycle.
      */
     private boolean beforeBeanDiscoveryFired = false;
+
     /**
      * Whether BeforeShutdown has already been fired for this container lifecycle.
      */
     private boolean beforeShutdownFired = false;
+
     /**
      * If true, expose CDI Lite behavior for CDI#getBeanManager() where only BeanContainer
      * methods are portable.
      */
     private boolean cdiLiteMode = false;
+
     private boolean cdiFullLegacyInterceptionEnabled = true;
+
     private boolean legacyCdi10NewEnabled = false;
+
     private boolean allowNonPortableAsyncObserverEventParameterPriority = false;
 
     /**
@@ -254,18 +269,25 @@ public class Syringe {
      * Map key: scope annotation class, Map value: context implementation
      */
     private final Map<Class<? extends Annotation>, Context> customContextsToRegister = new HashMap<>();
+
     private final Set<String> processedSyntheticAnnotatedTypeIds = new HashSet<>();
+
     private final Set<Class<?>> syntheticAnnotatedTypeClasses = new HashSet<>();
+
     /**
      * Classes explicitly supplied via addDiscoveredClass(...).
      * These classes apply strict archive-mode filtering already at ProcessAnnotatedType time.
      */
     private final Set<Class<?>> explicitlyAddedDiscoveredClasses = new HashSet<>();
+
     private final Map<String, AnnotatedType<?>> additionalAnnotatedTypesForDiscoveredClasses =
             new LinkedHashMap<>();
+
     private final Map<ProducerBean<?>, Producer<?>> deferredProducerReplacements =
             new IdentityHashMap<>();
+
     private InterceptorAwareProxyGenerator runtimeInterceptorAwareProxyGenerator;
+
     private DecoratorAwareProxyGenerator runtimeDecoratorAwareProxyGenerator;
 
     public Syringe() {
@@ -302,6 +324,9 @@ public class Syringe {
      * @param classes the classes to exclude
      */
     public void exclude(Class<?> ... classes) {
+        for (Class<?> clazz : classes) {
+            info("Programmatically excluded class: " + clazz.getName());
+        }
         knowledgeBase.exclude(classes);
     }
 
@@ -364,6 +389,7 @@ public class Syringe {
         // Keep interception behavior aligned with selected CDI mode by default:
         // CDI Lite -> strict non-portable checks; CDI Full -> allow legacy forms.
         this.cdiFullLegacyInterceptionEnabled = !cdiLiteMode;
+        info("CDI Lite mode forced: " + cdiLiteMode);
     }
 
     /**
@@ -378,6 +404,7 @@ public class Syringe {
             throw new IllegalStateException("Cannot change CDI interception mode after container initialization");
         }
         this.cdiFullLegacyInterceptionEnabled = enabled;
+        info("CDI Full legacy interception enabled: " + enabled);
     }
 
     /**
@@ -394,6 +421,7 @@ public class Syringe {
             throw new IllegalStateException("Cannot change legacy @New mode after container initialization");
         }
         this.legacyCdi10NewEnabled = enabled;
+        info("Legacy @New annotation enabled: " + enabled);
     }
 
     /**
@@ -415,6 +443,7 @@ public class Syringe {
                     "Cannot change async observer @Priority non-portable mode after container initialization");
         }
         this.allowNonPortableAsyncObserverEventParameterPriority = enabled;
+        info("Allow non-portable async observer @Priority: " + enabled);
     }
 
     /**
@@ -556,13 +585,6 @@ public class Syringe {
     }
 
     /**
-     * Performs classpath bean discovery between {@link #initialize()} and {@link #start()}.
-     */
-    public void discover() {
-        discoverBeans();
-    }
-
-    /**
      * PHASE 1: CONTAINER INITIALIZATION.
      *
      * <p>Initializes core infrastructure:
@@ -622,7 +644,7 @@ public class Syringe {
     }
 
     /**
-     * Performs bean discovery by scanning the classpath.
+     * Performs classpath bean discovery between {@link #initialize()} and {@link #start()}.
      *
      * <p>Steps:
      * <ol>
@@ -631,7 +653,7 @@ public class Syringe {
      *   <li>Collect AnnotatedType<?> for each discovered class</li>
      * </ol>
      */
-    private void discoverBeans() {
+    public void discover() {
         // Step 2.2: Perform bean discovery (classpath scanning)
         // - Scan for classes in specified packages
         // - Detect bean archives (explicit/implicit via beans.xml)
@@ -1148,6 +1170,8 @@ public class Syringe {
             if (loadedExtensionClassNames.add(className)) {
                 extensions.add(extension);
                 info("Loaded extension instance: " + className);
+            } else {
+                warn("Skipped duplicate extension registration: " + className);
             }
         }
 
@@ -1162,6 +1186,8 @@ public class Syringe {
             if (loadedExtensionClassNames.add(className)) {
                 extensions.add(extension);
                 info("Loaded extension: " + className);
+            } else {
+                warn("Skipped duplicate extension registration: " + className);
             }
         }
 
@@ -1179,7 +1205,7 @@ public class Syringe {
                         extensions.add(extension);
                         info("Loaded extension: " + className);
                     } else {
-                        info("Skipped duplicate extension registration: " + className);
+                        warn("Skipped duplicate extension registration: " + className);
                     }
                 }
                 loadedCount++;
@@ -1212,6 +1238,8 @@ public class Syringe {
                 }
                 buildCompatibleExtensions.add(extension);
                 info("Loaded build compatible extension: " + className);
+            } else {
+                warn("Skipped duplicate build compatible extension registration: " + className);
             }
         }
 
@@ -1261,6 +1289,7 @@ public class Syringe {
                 List<String> providerClassNames = readServiceProviderClassNames(url);
                 for (String providerClassName : providerClassNames) {
                     if (!loadedBceClassNames.add(providerClassName)) {
+                        warn("Skipped duplicate build compatible extension registration: " + providerClassName);
                         continue;
                     }
                     try {
@@ -1340,11 +1369,7 @@ public class Syringe {
     }
 
     private boolean shouldSkipBuildCompatibleExtension(Class<?> extensionClass) {
-        if (!hasSkipIfPortableExtensionPresentAnnotation(extensionClass)) {
-            return false;
-        }
-        jakarta.enterprise.inject.build.compatible.spi.SkipIfPortableExtensionPresent skipAnnotation =
-                getSkipIfPortableExtensionPresentAnnotation(extensionClass);
+        SkipIfPortableExtensionPresent skipAnnotation = getSkipIfPortableExtensionPresentAnnotation(extensionClass);
         if (skipAnnotation == null) {
             return false;
         }
@@ -6214,6 +6239,10 @@ public class Syringe {
 
     private void info(String message) {
         messageHandler.info("[Syringe] " + message);
+    }
+
+    private void warn(String message) {
+        messageHandler.warn("[Syringe] " + message);
     }
 
     private void error(String message) {
