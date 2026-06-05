@@ -1,13 +1,7 @@
 package com.threeamigos.common.util.implementations.injection.annotations;
 
 import com.threeamigos.common.util.implementations.injection.types.TypeClosureHelper;
-import jakarta.enterprise.inject.spi.Annotated;
-import jakarta.enterprise.inject.spi.AnnotatedCallable;
-import jakarta.enterprise.inject.spi.AnnotatedConstructor;
-import jakarta.enterprise.inject.spi.AnnotatedField;
-import jakarta.enterprise.inject.spi.AnnotatedMethod;
-import jakarta.enterprise.inject.spi.AnnotatedParameter;
-import jakarta.enterprise.inject.spi.AnnotatedType;
+import jakarta.enterprise.inject.spi.*;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
@@ -18,8 +12,12 @@ import java.lang.reflect.Member;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.Type;
-import java.util.LinkedHashSet;
-import java.util.Set;
+import java.util.*;
+
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.*;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.hasAnyAnnotation;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.PRIORITY;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.WITH_ANNOTATIONS;
 
 /**
  * Utility methods to resolve member/parameter metadata from ProcessAnnotatedType overrides.
@@ -151,6 +149,18 @@ public final class AnnotatedMetadataHelper {
         return null;
     }
 
+    public static AnnotatedParameter<?> findAnnotatedParameter(AnnotatedMethod<?> annotatedMethod, int position) {
+        if (annotatedMethod == null) {
+            return null;
+        }
+        for (AnnotatedParameter<?> parameter : annotatedMethod.getParameters()) {
+            if (parameter.getPosition() == position) {
+                return parameter;
+            }
+        }
+        return null;
+    }
+
     private static AnnotatedParameter<?> parameterAt(AnnotatedCallable<?> callable, int position) {
         if (callable == null) {
             return null;
@@ -183,4 +193,123 @@ public final class AnnotatedMetadataHelper {
                 || element instanceof Constructor
                 || element instanceof Parameter;
     }
+
+    public static jakarta.enterprise.event.Observes getObservesAnnotationFrom(Annotation[] annotations) {
+        for (Annotation annotation : annotations) {
+            if (annotation instanceof jakarta.enterprise.event.Observes) {
+                return (jakarta.enterprise.event.Observes) annotation;
+            }
+        }
+        return null;
+    }
+
+    public static boolean hasObservesAsyncAnnotationIn(Annotation[] annotations) {
+        return getObservesAsyncAnnotationFrom(annotations) != null;
+    }
+
+    public static jakarta.enterprise.event.ObservesAsync getObservesAsyncAnnotationFrom(Annotation[] annotations) {
+        for (Annotation annotation : annotations) {
+            if (annotation instanceof jakarta.enterprise.event.ObservesAsync) {
+                return (jakarta.enterprise.event.ObservesAsync) annotation;
+            }
+        }
+        return null;
+    }
+
+    public static Set<Annotation> extractObserverQualifiers(Annotation[] observedParameterAnnotations) {
+        if (observedParameterAnnotations == null) {
+            return new HashSet<>();
+        }
+        return new HashSet<>(
+                QualifiersHelper
+                        .extractQualifierAnnotations(observedParameterAnnotations));
+    }
+
+    public static boolean hasObservesAnnotationIn(Annotation[] annotations) {
+        return getObservesAnnotationFrom(annotations) != null;
+    }
+
+    public static Integer getPriorityValueFromAnnotations(Annotation[] annotations) {
+        if (annotations == null) {
+            return null;
+        }
+        for (Annotation annotation : annotations) {
+            if (annotation == null) {
+                continue;
+            }
+            if (PRIORITY.matches(annotation.annotationType())) {
+                try {
+                    Method valueMethod = annotation.annotationType().getMethod("value");
+                    Object value = valueMethod.invoke(annotation);
+                    if (value instanceof Integer) {
+                        return (Integer) value;
+                    }
+                } catch (ReflectiveOperationException ignored) {
+                    return null;
+                }
+            }
+        }
+        return null;
+    }
+
+    public static boolean hasDisposesAnnotationInAnnotatedParameter(AnnotatedParameter<?> parameter) {
+        if (parameter == null || parameter.getAnnotations() == null) {
+            return false;
+        }
+        for (Annotation annotation : parameter.getAnnotations()) {
+            if (annotation != null && hasDisposesAnnotation(annotation.annotationType())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @SuppressWarnings("unchecked")
+    public static Set<Class<? extends Annotation>> resolveWithAnnotationsFilter(Parameter parameter) {
+        if (!hasWithAnnotationsAnnotation(parameter)) {
+            return null;
+        }
+        Annotation[] annotations = parameter.getAnnotations();
+        for (Annotation annotation : annotations) {
+            Class<? extends Annotation> annotationType = annotation.annotationType();
+            if (!WITH_ANNOTATIONS.matches(annotationType)) {
+                continue;
+            }
+            try {
+                Method valueMethod = annotationType.getMethod("value");
+                Object value = valueMethod.invoke(annotation);
+                if (!(value instanceof Class[])) {
+                    return Collections.emptySet();
+                }
+                Class<?>[] rawValues = (Class<?>[]) value;
+                Set<Class<? extends Annotation>> filter = new LinkedHashSet<>();
+                for (Class<?> rawValue : rawValues) {
+                    if (rawValue != null && Annotation.class.isAssignableFrom(rawValue)) {
+                        filter.add((Class<? extends Annotation>) rawValue);
+                    }
+                }
+                return filter;
+            } catch (Exception e) {
+                throw new DefinitionException("Unable to read @WithAnnotations value on parameter " + parameter, e);
+            }
+        }
+        return null;
+    }
+
+    public static boolean hasNoQualifierOrOnlyAnyQualifier(Parameter observedParameter) {
+        List<Annotation> qualifierAnnotations = new ArrayList<>();
+        for (Annotation annotation : observedParameter.getAnnotations()) {
+            if (hasQualifierAnnotation(annotation.annotationType())) {
+                qualifierAnnotations.add(annotation);
+            }
+        }
+
+        if (qualifierAnnotations.isEmpty()) {
+            return true;
+        }
+
+        return qualifierAnnotations.size() == 1 &&
+                hasAnyAnnotation(qualifierAnnotations.get(0).annotationType());
+    }
+
 }

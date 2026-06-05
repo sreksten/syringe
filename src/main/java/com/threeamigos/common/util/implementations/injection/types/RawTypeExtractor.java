@@ -7,6 +7,19 @@ import java.lang.reflect.*;
  */
 public class RawTypeExtractor {
 
+    public static Class<?> extractRawClass(Type type) {
+        if (type instanceof Class<?>) {
+            return (Class<?>) type;
+        }
+        if (type instanceof ParameterizedType) {
+            Type rawType = ((ParameterizedType) type).getRawType();
+            if (rawType instanceof Class<?>) {
+                return (Class<?>) rawType;
+            }
+        }
+        return null;
+    }
+
     public static Class<?> getRawType(Type type) {
         if (type instanceof Class<?>) {
             return (Class<?>) type;

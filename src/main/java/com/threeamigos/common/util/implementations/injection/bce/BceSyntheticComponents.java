@@ -5,6 +5,7 @@ import com.threeamigos.common.util.implementations.injection.spi.BeanManagerImpl
 import jakarta.enterprise.inject.build.compatible.spi.SyntheticBeanBuilder;
 import jakarta.enterprise.inject.build.compatible.spi.SyntheticComponents;
 import jakarta.enterprise.inject.build.compatible.spi.SyntheticObserverBuilder;
+import jakarta.enterprise.inject.spi.BeanManager;
 import jakarta.enterprise.lang.model.types.Type;
 
 import java.util.ArrayList;
@@ -16,14 +17,14 @@ import java.util.List;
 public class BceSyntheticComponents implements SyntheticComponents {
 
     private final KnowledgeBase knowledgeBase;
-    private final BeanManagerImpl beanManager;
+    private final BeanManager beanManager;
     private final BceInvokerRegistry invokerRegistry;
     private final List<BceSyntheticBeanBuilderImpl<?>> beanBuilders = new ArrayList<>();
     private final List<BceSyntheticObserverBuilderImpl<?>> observerBuilders =
             new ArrayList<>();
 
     public BceSyntheticComponents(KnowledgeBase knowledgeBase,
-                                  BeanManagerImpl beanManager,
+                                  BeanManager beanManager,
                                   BceInvokerRegistry invokerRegistry) {
         this.knowledgeBase = knowledgeBase;
         this.beanManager = beanManager;

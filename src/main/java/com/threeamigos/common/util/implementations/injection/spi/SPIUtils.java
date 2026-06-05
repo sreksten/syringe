@@ -8,6 +8,9 @@ import jakarta.enterprise.lang.model.declarations.MethodInfo;
 import jakarta.enterprise.lang.model.declarations.ParameterInfo;
 
 import java.lang.annotation.Annotation;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 
 public class SPIUtils {
 
@@ -102,4 +105,46 @@ public class SPIUtils {
     public static boolean isParameterConfig(Class<?> parameterType) {
         return ParameterConfig.class.isAssignableFrom(parameterType);
     }
+
+    public static boolean isContainerLifecycleObservedType(Class<?> observedType) {
+        String name = observedType.getName();
+        return name.startsWith("jakarta.enterprise.inject.spi.Process") ||
+                "jakarta.enterprise.inject.spi.BeforeBeanDiscovery".equals(name) ||
+                "jakarta.enterprise.inject.spi.AfterTypeDiscovery".equals(name) ||
+                "jakarta.enterprise.inject.spi.AfterBeanDiscovery".equals(name) ||
+                "jakarta.enterprise.inject.spi.AfterDeploymentValidation".equals(name) ||
+                "jakarta.enterprise.inject.spi.BeforeShutdown".equals(name);
+    }
+
+    public static boolean isDefinitionErrorLifecycleEvent(Class<?> eventType) {
+        Set<String> typeNames = collectTypeNames(eventType);
+        return typeNames.contains("jakarta.enterprise.inject.spi.BeforeBeanDiscovery") ||
+                typeNames.contains("jakarta.enterprise.inject.spi.AfterTypeDiscovery") ||
+                typeNames.contains("jakarta.enterprise.inject.spi.AfterBeanDiscovery");
+    }
+
+    public static boolean isAfterDeploymentValidationLifecycleEvent(Class<?> eventType) {
+        return collectTypeNames(eventType).contains("jakarta.enterprise.inject.spi.AfterDeploymentValidation");
+    }
+
+    public static boolean isBeforeShutdownLifecycleEvent(Class<?> eventType) {
+        return collectTypeNames(eventType).contains("jakarta.enterprise.inject.spi.BeforeShutdown");
+    }
+
+    private static Set<String> collectTypeNames(Class<?> eventType) {
+        if (eventType == null) {
+            return Collections.emptySet();
+        }
+        Set<String> typeNames = new HashSet<>();
+        Class<?> current = eventType;
+        while (current != null) {
+            typeNames.add(current.getName());
+            for (Class<?> face : current.getInterfaces()) {
+                typeNames.add(face.getName());
+            }
+            current = current.getSuperclass();
+        }
+        return typeNames;
+    }
+
 }

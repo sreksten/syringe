@@ -3,6 +3,7 @@ package com.threeamigos.common.util.implementations.injection.bce;
 import com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates;
 
 import com.threeamigos.common.util.implementations.injection.knowledgebase.KnowledgeBase;
+import com.threeamigos.common.util.implementations.injection.resolution.BeanResolver;
 import com.threeamigos.common.util.implementations.injection.spi.BeanManagerImpl;
 import com.threeamigos.common.util.implementations.injection.spi.SyntheticBean;
 import jakarta.annotation.Nonnull;
@@ -16,6 +17,7 @@ import jakarta.enterprise.inject.build.compatible.spi.SyntheticBeanBuilder;
 import jakarta.enterprise.inject.build.compatible.spi.SyntheticBeanCreator;
 import jakarta.enterprise.inject.build.compatible.spi.SyntheticBeanDisposer;
 import jakarta.enterprise.inject.spi.Bean;
+import jakarta.enterprise.inject.spi.BeanManager;
 import jakarta.enterprise.inject.spi.InjectionPoint;
 import jakarta.enterprise.lang.model.AnnotationInfo;
 import jakarta.enterprise.lang.model.declarations.ClassInfo;
@@ -34,7 +36,7 @@ import java.util.function.Function;
 final class BceSyntheticBeanBuilderImpl<T> extends BceSyntheticAbstractBuilder implements SyntheticBeanBuilder<T> {
 
     private final KnowledgeBase knowledgeBase;
-    private final BeanManagerImpl beanManager;
+    private final BeanManager beanManager;
     private final BceInvokerRegistry invokerRegistry;
     private final Class<T> implementationClass;
 
@@ -48,7 +50,7 @@ final class BceSyntheticBeanBuilderImpl<T> extends BceSyntheticAbstractBuilder i
     private Class<? extends SyntheticBeanDisposer<T>> disposerClass;
 
     BceSyntheticBeanBuilderImpl(KnowledgeBase knowledgeBase,
-                                BeanManagerImpl beanManager,
+                                BeanManager beanManager,
                                 BceInvokerRegistry invokerRegistry,
                                 Class<T> implementationClass) {
         this.knowledgeBase = knowledgeBase;
@@ -390,8 +392,12 @@ final class BceSyntheticBeanBuilderImpl<T> extends BceSyntheticAbstractBuilder i
                     @Override
                     public Object resolveInstance(Class<Object> type, java.util.Collection<Annotation> quals) {
                         if (InjectionPoint.class.equals(type)) {
-                            InjectionPoint current = beanManager.getBeanResolver() != null
-                                    ? beanManager.getBeanResolver().getCurrentInjectionPoint()
+                            BeanResolver beanResolver = null;
+                            if (beanManager instanceof BeanManagerImpl) {
+                                beanResolver = ((BeanManagerImpl) beanManager).getBeanResolver();
+                            }
+                            InjectionPoint current = beanResolver != null
+                                    ? beanResolver.getCurrentInjectionPoint()
                                     : null;
                             if (current != null) {
                                 return current;
@@ -441,7 +447,7 @@ final class BceSyntheticBeanBuilderImpl<T> extends BceSyntheticAbstractBuilder i
                     }
                 },
                 null,
-                beanManager
+                (BeanManagerImpl) beanManager
         );
     }
 

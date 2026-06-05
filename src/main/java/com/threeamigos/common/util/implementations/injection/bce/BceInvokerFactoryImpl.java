@@ -11,6 +11,7 @@ import jakarta.enterprise.inject.build.compatible.spi.InvokerFactory;
 import jakarta.enterprise.inject.build.compatible.spi.InvokerInfo;
 import jakarta.enterprise.inject.spi.AnnotatedType;
 import jakarta.enterprise.inject.spi.Bean;
+import jakarta.enterprise.inject.spi.BeanManager;
 import jakarta.enterprise.inject.spi.DefinitionException;
 import jakarta.enterprise.invoke.Invoker;
 import jakarta.enterprise.invoke.InvokerBuilder;
@@ -21,12 +22,12 @@ import java.lang.reflect.Method;
 final class BceInvokerFactoryImpl implements InvokerFactory {
 
     private final KnowledgeBase knowledgeBase;
-    private final BeanManagerImpl beanManager;
+    private final BeanManager beanManager;
     private final MessageHandler messageHandler;
     private final BceInvokerRegistry invokerRegistry;
 
     BceInvokerFactoryImpl(KnowledgeBase knowledgeBase,
-                          BeanManagerImpl beanManager,
+                          BeanManager beanManager,
                           MessageHandler messageHandler,
                           BceInvokerRegistry invokerRegistry) {
         this.knowledgeBase = knowledgeBase;

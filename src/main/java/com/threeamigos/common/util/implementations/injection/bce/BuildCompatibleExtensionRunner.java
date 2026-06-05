@@ -30,6 +30,7 @@ import jakarta.enterprise.inject.build.compatible.spi.StereotypeInfo;
 import jakarta.enterprise.inject.build.compatible.spi.Types;
 import jakarta.enterprise.inject.build.compatible.spi.InvokerFactory;
 import jakarta.enterprise.inject.build.compatible.spi.SyntheticComponents;
+import jakarta.enterprise.inject.spi.BeanManager;
 import jakarta.enterprise.inject.spi.DefinitionException;
 import jakarta.enterprise.lang.model.AnnotationInfo;
 import jakarta.enterprise.lang.model.declarations.FieldInfo;
@@ -74,7 +75,7 @@ public class BuildCompatibleExtensionRunner {
 
     private final MessageHandler messageHandler;
     private final KnowledgeBase knowledgeBase;
-    private final BeanManagerImpl beanManager;
+    private final BeanManager beanManager;
     private final BceInvokerRegistry invokerRegistry;
     private final BceInvokerFactoryImpl invokerFactory;
     private final BceRegistrationContext registrationContext;
@@ -87,7 +88,7 @@ public class BuildCompatibleExtensionRunner {
 
     public BuildCompatibleExtensionRunner(MessageHandler messageHandler,
                                           KnowledgeBase knowledgeBase,
-                                          BeanManagerImpl beanManager,
+                                          BeanManager beanManager,
                                           BceInvokerRegistry invokerRegistry) {
         this.messageHandler = messageHandler;
         this.knowledgeBase = knowledgeBase;
