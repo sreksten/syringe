@@ -341,17 +341,15 @@ public class Syringe {
      * In this mode, invoking BeanManager methods not inherited from BeanContainer
      * is treated as non-portable behavior.
      *
-     * @param cdiLiteMode true to enable CDI Lite BeanManager surface restrictions
+     * @param enabled true to enable CDI Lite BeanManager surface restrictions
      */
-    public void forceCdiLiteMode(boolean cdiLiteMode) {
+    public void enableCdiLiteMode(boolean enabled) {
         if (initialized) {
             throw new IllegalStateException("Cannot change CDI mode after container initialization");
         }
-        this.cdiLiteMode = cdiLiteMode;
-        // Keep interception behavior aligned with selected CDI mode by default:
-        // CDI Lite -> strict non-portable checks; CDI Full -> allow legacy forms.
-        this.cdiFullLegacyInterceptionEnabled = !cdiLiteMode;
-        info("CDI Lite mode forced: " + cdiLiteMode);
+        this.cdiLiteMode = enabled;
+        this.cdiFullLegacyInterceptionEnabled = !enabled;
+        info("CDI Lite mode forced: " + enabled);
     }
 
     /**
@@ -366,6 +364,7 @@ public class Syringe {
             throw new IllegalStateException("Cannot change CDI interception mode after container initialization");
         }
         this.cdiFullLegacyInterceptionEnabled = enabled;
+        this.cdiLiteMode = !enabled;
         info("CDI Full legacy interception enabled: " + enabled);
     }
 

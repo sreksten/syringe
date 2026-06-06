@@ -873,7 +873,7 @@ public class BeanContainerTest {
     @DisplayName("11.1 - In CDI Lite mode, invoking BeanManager methods not inherited from BeanContainer is non-portable")
     void shouldRejectNonBeanContainerBeanManagerMethodsInCdiLiteMode() {
         Syringe syringe = newSyringe(DefaultOnlyBean.class);
-        syringe.forceCdiLiteMode(true);
+        syringe.enableCdiLiteMode(true);
         syringe.setup();
 
         CDI.setCDIProvider(new RecordingProvider(syringe.getCDI()));
