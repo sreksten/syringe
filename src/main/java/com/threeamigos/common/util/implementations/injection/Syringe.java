@@ -160,6 +160,11 @@ public class Syringe {
     private ContextManager contextManager;
 
     /**
+     * The BeanManager - central interface for programmatic CDI access.
+     */
+    private BeanManagerImpl beanManager;
+
+    /**
      * The ExtensionsManager, responsible for handling extensions
      */
     private ExtensionsManager extensionsManager;
@@ -170,19 +175,14 @@ public class Syringe {
     private BuildCompatibleExtensionsManager buildCompatibleExtensionsManager;
 
     /**
-     * The BeanManager - central interface for programmatic CDI access.
-     */
-    private BeanManagerImpl beanManager;
-
-    /**
      * Whether the container has been initialized.
      */
-    private boolean initialized = false;
+    private boolean initialized;
 
     /**
      * Whether a container shutdown has started.
      */
-    private boolean shutdownStarted = false;
+    private boolean shutdownStarted;
 
     /**
      * ClassLoader used when retaining dynamic BCE metadata for this container lifecycle.
@@ -192,38 +192,38 @@ public class Syringe {
     /**
      * Whether this container lifecycle retained dynamic BCE metadata.
      */
-    private boolean dynamicAnnotationsRetained = false;
+    private boolean dynamicAnnotationsRetained;
 
     /**
      * Whether BeforeBeanDiscovery has already been fired for this container lifecycle.
      */
-    private boolean beforeBeanDiscoveryFired = false;
+    private boolean beforeBeanDiscoveryFired;
 
     /**
      * Whether BeforeShutdown has already been fired for this container lifecycle.
      */
-    private boolean beforeShutdownFired = false;
+    private boolean beforeShutdownFired;
 
     /**
      * If true, expose CDI Lite behavior for CDI#getBeanManager() where only BeanContainer
      * methods are portable.
      */
-    private boolean cdiLiteMode = false;
+    private boolean cdiLiteMode;
 
-    private boolean cdiFullLegacyInterceptionEnabled = true;
+    private boolean cdiFullLegacyInterceptionEnabled;
 
-    private boolean legacyCdi10NewEnabled = false;
+    private boolean legacyCdi10NewEnabled;
 
-    private boolean allowNonPortableAsyncObserverEventParameterPriority = false;
+    private boolean allowNonPortableAsyncObserverEventParameterPriority;
 
     /**
      * Custom contexts to register programmatically before container initialization.
      * These will be registered during the AfterBeanDiscovery phase.
      * Map key: scope annotation class, Map value: context implementation
      */
-    private final Map<Class<? extends Annotation>, Context> customContextsToRegister = new HashMap<>();
+    private Map<Class<? extends Annotation>, Context> customContextsToRegister;
 
-    private final Map<ProducerBean<?>, Producer<?>> deferredProducerReplacements = new IdentityHashMap<>();
+    private Map<ProducerBean<?>, Producer<?>> deferredProducerReplacements;
 
     private InterceptorAwareProxyGenerator runtimeInterceptorAwareProxyGenerator;
 
@@ -233,14 +233,14 @@ public class Syringe {
         this.messageHandler = new ConsoleMessageHandler();
         this.packageNames = new String[0];
         this.exactPackageMatchOnly = false;
-        completeInitialization();
+        reset();
     }
 
     public Syringe(String... packageNames) {
         this.messageHandler = new ConsoleMessageHandler();
         this.packageNames = packageNames != null ? packageNames : new String[0];
         this.exactPackageMatchOnly = false;
-        completeInitialization();
+        reset();
     }
 
     public Syringe(MessageHandler messageHandler, Class<?>... classes) {
@@ -250,10 +250,10 @@ public class Syringe {
             this.packageNames[i] = classes[i].getPackage().getName();
         }
         this.exactPackageMatchOnly = true;
-        completeInitialization();
+        reset();
     }
 
-    private void completeInitialization() {
+    private void reset() {
         knowledgeBase = new KnowledgeBase(messageHandler);
         contextManager = new ContextManager(messageHandler);
         beanManager = new BeanManagerImpl(knowledgeBase, contextManager);
@@ -268,6 +268,21 @@ public class Syringe {
         buildCompatibleExtensionsManager.setMessageHandler(messageHandler);
         buildCompatibleExtensionsManager.setExtensionsManager(extensionsManager);
         buildCompatibleExtensionsManager.setBeanManager(beanManager);
+
+        initialized = false;
+        shutdownStarted = false;
+        dynamicAnnotationClassLoader = null;
+        dynamicAnnotationsRetained = false;
+        beforeBeanDiscoveryFired = false;
+        beforeShutdownFired = false;
+        cdiLiteMode = false;
+        cdiFullLegacyInterceptionEnabled = true;
+        legacyCdi10NewEnabled = false;
+        allowNonPortableAsyncObserverEventParameterPriority = false;
+        customContextsToRegister = new HashMap<>();
+        deferredProducerReplacements = new IdentityHashMap<>();
+        runtimeInterceptorAwareProxyGenerator = null;
+        runtimeDecoratorAwareProxyGenerator = null;
     }
 
     /**
