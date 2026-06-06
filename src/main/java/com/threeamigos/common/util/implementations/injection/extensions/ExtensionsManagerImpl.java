@@ -1216,8 +1216,8 @@ public class ExtensionsManagerImpl implements ExtensionsManager {
 
     private BeanArchiveMode resolveProgrammaticAnnotatedTypeArchiveMode(Class<?> clazz,
                                                                         Extension sourceExtension) {
-        if (knowledgeBase.forcedBeanArchiveMode != null) {
-            return knowledgeBase.forcedBeanArchiveMode;
+        if (knowledgeBase.getForcedBeanArchiveMode() != null) {
+            return knowledgeBase.getForcedBeanArchiveMode();
         }
 
         BeanArchiveMode classMode = modeOfKnownClass(clazz);

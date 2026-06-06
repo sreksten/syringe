@@ -76,6 +76,7 @@ import java.lang.reflect.WildcardType;
 import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotatedMetadataHelper.*;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.*;
@@ -276,9 +277,9 @@ public class Syringe {
      * @param classes the classes to exclude
      */
     public void exclude(Class<?> ... classes) {
-        for (Class<?> clazz : classes) {
-            info("Programmatically excluded class: " + clazz.getName());
-        }
+        info("Programmatically excluded classes: " + Arrays.stream(classes)
+                .map(Class::getName)
+                .collect(Collectors.joining(", ")));
         knowledgeBase.exclude(classes);
     }
 
@@ -432,7 +433,7 @@ public class Syringe {
             throw new IllegalArgumentException("beanArchiveMode cannot be null");
         }
 
-        knowledgeBase.forcedBeanArchiveMode = beanArchiveMode;
+        knowledgeBase.setForcedBeanArchiveMode(beanArchiveMode);
         info("Forced bean archive mode: " + beanArchiveMode);
     }
 
@@ -4227,7 +4228,9 @@ public class Syringe {
     }
 
     private void applyForcedArchiveModeOverride() {
-        if (knowledgeBase.forcedBeanArchiveMode == null) {
+        BeanArchiveMode forcedBeanArchiveMode = knowledgeBase.getForcedBeanArchiveMode();
+
+        if (forcedBeanArchiveMode == null) {
             return;
         }
 
@@ -4236,14 +4239,14 @@ public class Syringe {
         // entries will be validated/registered.
         int updated = 0;
         for (Class<?> clazz : knowledgeBase.getClasses()) {
-            knowledgeBase.setBeanArchiveMode(clazz, knowledgeBase.forcedBeanArchiveMode);
+            knowledgeBase.setBeanArchiveMode(clazz, forcedBeanArchiveMode);
             updated++;
         }
-        info("Applied forced bean archive mode " + knowledgeBase.forcedBeanArchiveMode + " to " + updated + " class(es)");
+        info("Applied forced bean archive mode " + forcedBeanArchiveMode + " to " + updated + " class(es)");
     }
 
     private void applyBeansXmlAllModeOverrideForExactPackageBootstrap() {
-        if (!exactPackageMatchOnly || knowledgeBase.forcedBeanArchiveMode != null) {
+        if (!exactPackageMatchOnly || knowledgeBase.getForcedBeanArchiveMode() != null) {
             return;
         }
 

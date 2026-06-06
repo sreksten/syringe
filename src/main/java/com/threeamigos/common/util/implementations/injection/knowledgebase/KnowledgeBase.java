@@ -52,7 +52,7 @@ public class KnowledgeBase {
      * bean-discovery-mode="none", those classes are never added and therefore cannot
      * be affected by this override.
      */
-    public BeanArchiveMode forcedBeanArchiveMode;
+    private BeanArchiveMode forcedBeanArchiveMode;
 
     private final MessageHandler messageHandler;
     private final KnowledgeBaseDiscoveryStore discoveryStore = new KnowledgeBaseDiscoveryStore();
@@ -130,6 +130,14 @@ public class KnowledgeBase {
 
     public void setImplicitBeanArchiveScanningEnabled(boolean implicitBeanArchiveScanningEnabled) {
         discoveryStore.setImplicitBeanArchiveScanningEnabled(implicitBeanArchiveScanningEnabled);
+    }
+
+    public BeanArchiveMode getForcedBeanArchiveMode() {
+        return forcedBeanArchiveMode;
+    }
+
+    public void setForcedBeanArchiveMode(BeanArchiveMode forcedBeanArchiveMode) {
+        this.forcedBeanArchiveMode = forcedBeanArchiveMode;
     }
 
     public BeanArchiveMode getBeanArchiveMode(Class<?> clazz) {
