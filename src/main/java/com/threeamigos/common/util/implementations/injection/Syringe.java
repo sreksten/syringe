@@ -19,7 +19,6 @@ import com.threeamigos.common.util.implementations.injection.discovery.validatio
 import com.threeamigos.common.util.implementations.injection.events.ObserverMethodInfoKey;
 import com.threeamigos.common.util.implementations.injection.extensions.ExtensionsManager;
 import com.threeamigos.common.util.implementations.injection.extensions.ExtensionsManagerImpl;
-import com.threeamigos.common.util.implementations.injection.knowledgebase.ScopeMetadata;
 import com.threeamigos.common.util.implementations.injection.scopes.ContextManager;
 import com.threeamigos.common.util.implementations.injection.discovery.*;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.KnowledgeBase;
@@ -223,14 +222,7 @@ public class Syringe {
      */
     private final Map<Class<? extends Annotation>, Context> customContextsToRegister = new HashMap<>();
 
-    /**
-     * Classes explicitly supplied via addDiscoveredClass(...).
-     * These classes apply strict archive-mode filtering already at ProcessAnnotatedType time.
-     */
-    private final Set<Class<?>> explicitlyAddedDiscoveredClasses = new HashSet<>();
-
-    private final Map<ProducerBean<?>, Producer<?>> deferredProducerReplacements =
-            new IdentityHashMap<>();
+    private final Map<ProducerBean<?>, Producer<?>> deferredProducerReplacements = new IdentityHashMap<>();
 
     private InterceptorAwareProxyGenerator runtimeInterceptorAwareProxyGenerator;
 
@@ -561,7 +553,7 @@ public class Syringe {
         dynamicAnnotationsRetained = false;
         knowledgeBase.processedSyntheticAnnotatedTypeIds.clear();
         knowledgeBase.syntheticAnnotatedTypeClasses.clear();
-        explicitlyAddedDiscoveredClasses.clear();
+        knowledgeBase.explicitlyAddedDiscoveredClasses.clear();
         knowledgeBase.additionalAnnotatedTypesForDiscoveredClasses.clear();
 
         // ============================================================
@@ -702,11 +694,8 @@ public class Syringe {
         if (initialized) {
             throw new IllegalStateException("Container already initialized");
         }
-        if (knowledgeBase == null) {
-            throw new IllegalStateException("Container not yet initialized. Call initialize() first.");
-        }
         BeanArchiveMode mode = beanArchiveMode != null ? beanArchiveMode : BeanArchiveMode.IMPLICIT;
-        BeanArchiveMode effectiveMode = knowledgeBase.effectiveBeanArchiveMode(mode);
+        BeanArchiveMode effectiveMode = knowledgeBase.getEffectiveBeanArchiveMode(mode);
         if (knowledgeBase.getClasses().contains(clazz)) {
             if (!explicitlyAdded) {
                 // Managed runtimes can report classes already added during BCE discovery.
@@ -724,7 +713,7 @@ public class Syringe {
         }
         knowledgeBase.add(clazz, effectiveMode);
         if (explicitlyAdded) {
-            explicitlyAddedDiscoveredClasses.add(clazz);
+            knowledgeBase.explicitlyAddedDiscoveredClasses.add(clazz);
         }
     }
 
@@ -739,9 +728,6 @@ public class Syringe {
     public void addBeansXmlConfiguration(BeansXml beansXml) {
         if (initialized) {
             throw new IllegalStateException("Container already initialized");
-        }
-        if (knowledgeBase == null) {
-            throw new IllegalStateException("Container not yet initialized. Call initialize() first.");
         }
         knowledgeBase.addBeansXml(beansXml);
     }
@@ -1068,7 +1054,7 @@ public class Syringe {
         customContextsToRegister.clear();
         knowledgeBase.processedSyntheticAnnotatedTypeIds.clear();
         knowledgeBase.syntheticAnnotatedTypeClasses.clear();
-        explicitlyAddedDiscoveredClasses.clear();
+        knowledgeBase.explicitlyAddedDiscoveredClasses.clear();
         knowledgeBase.additionalAnnotatedTypesForDiscoveredClasses.clear();
         deferredProducerReplacements.clear();
 
@@ -1142,7 +1128,7 @@ public class Syringe {
                     knowledgeBase.vetoType(clazz);
                     continue;
                 }
-                if (!shouldIncludeTypeInDiscoveryForArchiveMode(clazz)) {
+                if (!knowledgeBase.shouldIncludeTypeInDiscoveryForArchiveMode(clazz)) {
                     continue;
                 }
 
@@ -1183,68 +1169,6 @@ public class Syringe {
         return ActivateRequestContextInterceptor.class.equals(clazz);
     }
 
-    private boolean shouldIncludeTypeInDiscoveryForArchiveMode(Class<?> clazz) {
-        BeanArchiveMode mode = knowledgeBase.getBeanArchiveMode(clazz);
-        if (mode == null) {
-            mode = BeanArchiveMode.IMPLICIT;
-        }
-        if (BeanArchiveMode.NONE.equals(mode)) {
-            return false;
-        }
-        if (BeanArchiveMode.EXPLICIT.equals(mode)) {
-            return true;
-        }
-        // TRIMMED mode behavior differs by bootstrap path:
-        // - forced/manual-trimmed discovery is already narrowed to bean-defining types
-        // - scanner-derived trimmed discovery keeps PAT visibility of discovered types
-        boolean trimAtTypeDiscovery = BeanArchiveMode.TRIMMED.equals(knowledgeBase.forcedBeanArchiveMode)
-                || explicitlyAddedDiscoveredClasses.contains(clazz);
-        if (BeanArchiveMode.TRIMMED.equals(mode)) {
-            if (!trimAtTypeDiscovery) {
-                return true;
-            }
-            if (clazz.isInterface() || clazz.isEnum() || clazz.isAnnotation()) {
-                return false;
-            }
-            return hasBeanDefiningAnnotation(clazz);
-        }
-        // IMPLICIT discovery includes only bean-defining classes.
-        if (clazz.isInterface() || clazz.isEnum() || clazz.isAnnotation()) {
-            return false;
-        }
-        return hasBeanDefiningAnnotation(clazz);
-    }
-
-    private boolean hasBeanDefiningAnnotation(Class<?> clazz) {
-        if (clazz == null) {
-            return false;
-        }
-        if (hasInterceptorAnnotation(clazz) || hasDecoratorAnnotation(clazz)) {
-            return true;
-        }
-        for (Annotation annotation : clazz.getAnnotations()) {
-            Class<? extends Annotation> type = annotation.annotationType();
-            if (isScopeOrNormalScope(type) || isStereotype(type)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean isScopeOrNormalScope(Class<? extends Annotation> annotationType) {
-        if (annotationType == null) {
-            return false;
-        }
-        if (hasDependentAnnotation(annotationType)) {
-            return true;
-        }
-        if (hasNormalScopeAnnotation(annotationType) || hasBuiltInNormalScopeAnnotation(annotationType)) {
-            return true;
-        }
-        ScopeMetadata metadata = knowledgeBase.getScopeMetadata(annotationType);
-        return metadata != null && metadata.isNormal();
-    }
-
     // ============================================================
     // PHASE 3: BEAN PROCESSING
     // ============================================================
@@ -1274,7 +1198,7 @@ public class Syringe {
             try {
                 // Effective mode honors forced override when configured; otherwise uses
                 // the mode detected during scanning and recorded in KnowledgeBase.
-                BeanArchiveMode mode = knowledgeBase.effectiveBeanArchiveMode(knowledgeBase.getBeanArchiveMode(clazz));
+                BeanArchiveMode mode = knowledgeBase.getEffectiveBeanArchiveMode(knowledgeBase.getBeanArchiveMode(clazz));
                 AnnotatedType<?> override = knowledgeBase.getAnnotatedTypeOverride(clazz);
                 validator.validateAndRegisterRaw(clazz, mode, override);
                 validated++;
@@ -1309,7 +1233,7 @@ public class Syringe {
             }
 
             try {
-                BeanArchiveMode mode = knowledgeBase.effectiveBeanArchiveMode(knowledgeBase.getBeanArchiveMode(clazz));
+                BeanArchiveMode mode = knowledgeBase.getEffectiveBeanArchiveMode(knowledgeBase.getBeanArchiveMode(clazz));
                 BeanImpl<?> bean = validator.validateAndRegisterRaw(clazz, mode, annotatedType);
                 if (bean != null) {
                     registered++;

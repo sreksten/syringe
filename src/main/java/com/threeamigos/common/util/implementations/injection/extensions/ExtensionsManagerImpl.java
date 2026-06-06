@@ -1222,22 +1222,22 @@ public class ExtensionsManagerImpl implements ExtensionsManager {
 
         BeanArchiveMode classMode = modeOfKnownClass(clazz);
         if (classMode != null) {
-            return knowledgeBase.effectiveBeanArchiveMode(classMode);
+            return knowledgeBase.getEffectiveBeanArchiveMode(classMode);
         }
 
         if (sourceExtension != null) {
             BeanArchiveMode sourceMode = modeOfKnownClass(sourceExtension.getClass());
             if (sourceMode != null) {
-                return knowledgeBase.effectiveBeanArchiveMode(sourceMode);
+                return knowledgeBase.getEffectiveBeanArchiveMode(sourceMode);
             }
         }
 
         BeanArchiveMode beansXmlMode = resolveProgrammaticArchiveModeFromBeansXml();
         if (beansXmlMode != null) {
-            return knowledgeBase.effectiveBeanArchiveMode(beansXmlMode);
+            return knowledgeBase.getEffectiveBeanArchiveMode(beansXmlMode);
         }
 
-        return knowledgeBase.effectiveBeanArchiveMode(BeanArchiveMode.IMPLICIT);
+        return knowledgeBase.getEffectiveBeanArchiveMode(BeanArchiveMode.IMPLICIT);
     }
 
     private BeanArchiveMode modeOfKnownClass(Class<?> candidate) {

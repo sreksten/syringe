@@ -22,21 +22,25 @@ import java.lang.reflect.Constructor;
 import java.util.*;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AlternativesHelper.isAlternativeViaAnnotationOrStereotype;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotatedMetadataHelper.extractPriorityValue;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotatedMetadataHelper.getPriorityValueFromAnnotations;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotatedMetadataHelper.*;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationExtractors.getPriorityValue;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.hasStereotypeAnnotation;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.*;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.hasBuiltInNormalScopeAnnotation;
 import static com.threeamigos.common.util.implementations.injection.spi.SPIUtils.extractPrioritizedInterfacePriority;
 
 public class KnowledgeBase {
 
+    public final Set<String> processedSyntheticAnnotatedTypeIds = new HashSet<>();
 
     public final Set<Class<?>> syntheticAnnotatedTypeClasses = new HashSet<>();
 
-    public final Map<String, AnnotatedType<?>> additionalAnnotatedTypesForDiscoveredClasses =
-            new LinkedHashMap<>();
+    /**
+     * Classes explicitly supplied via addDiscoveredClass(...).
+     * These classes apply strict archive-mode filtering already at ProcessAnnotatedType time.
+     */
+    public final Set<Class<?>> explicitlyAddedDiscoveredClasses = new HashSet<>();
 
-    public final Set<String> processedSyntheticAnnotatedTypeIds = new HashSet<>();
+    public final Map<String, AnnotatedType<?>> additionalAnnotatedTypesForDiscoveredClasses = new LinkedHashMap<>();
 
     /**
      * Optional forced bean archive mode used during validation/discovery processing.
@@ -50,7 +54,6 @@ public class KnowledgeBase {
      */
     public BeanArchiveMode forcedBeanArchiveMode;
 
-
     private final MessageHandler messageHandler;
     private final KnowledgeBaseDiscoveryStore discoveryStore = new KnowledgeBaseDiscoveryStore();
     private final KnowledgeBaseBeanRegistryStore beanRegistryStore = new KnowledgeBaseBeanRegistryStore();
@@ -60,6 +63,7 @@ public class KnowledgeBase {
     private final KnowledgeBaseProblemCollector problemCollector = new KnowledgeBaseProblemCollector();
     private final BeansXmlOrderingHelper beansXmlOrderingHelper;
     private final InterceptorsHelper interceptorsHelper;
+
     public KnowledgeBase(MessageHandler messageHandler) {
         this.messageHandler = messageHandler;
         this.beansXmlOrderingHelper = new BeansXmlOrderingHelper(discoveryStore.getBeansXmlConfigurations());
@@ -1153,11 +1157,73 @@ public class KnowledgeBase {
         return extractPrioritizedInterfacePriority(candidate);
     }
 
-    public BeanArchiveMode effectiveBeanArchiveMode(BeanArchiveMode discoveredMode) {
+    public BeanArchiveMode getEffectiveBeanArchiveMode(BeanArchiveMode discoveredMode) {
         if (forcedBeanArchiveMode != null) {
             return forcedBeanArchiveMode;
         }
         return discoveredMode != null ? discoveredMode : BeanArchiveMode.IMPLICIT;
+    }
+
+    public boolean isScopeOrNormalScope(Class<? extends Annotation> annotationType) {
+        if (annotationType == null) {
+            return false;
+        }
+        if (hasDependentAnnotation(annotationType)) {
+            return true;
+        }
+        if (hasNormalScopeAnnotation(annotationType) || hasBuiltInNormalScopeAnnotation(annotationType)) {
+            return true;
+        }
+        ScopeMetadata metadata = getScopeMetadata(annotationType);
+        return metadata != null && metadata.isNormal();
+    }
+
+    public boolean hasBeanDefiningAnnotation(Class<?> clazz) {
+        if (clazz == null) {
+            return false;
+        }
+        if (hasInterceptorAnnotation(clazz) || hasDecoratorAnnotation(clazz)) {
+            return true;
+        }
+        for (Annotation annotation : clazz.getAnnotations()) {
+            Class<? extends Annotation> type = annotation.annotationType();
+            if (isScopeOrNormalScope(type) || isStereotype(type)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean shouldIncludeTypeInDiscoveryForArchiveMode(Class<?> clazz) {
+        BeanArchiveMode mode = getBeanArchiveMode(clazz);
+        if (mode == null) {
+            mode = BeanArchiveMode.IMPLICIT;
+        }
+        if (BeanArchiveMode.NONE.equals(mode)) {
+            return false;
+        }
+        if (BeanArchiveMode.EXPLICIT.equals(mode)) {
+            return true;
+        }
+        // TRIMMED mode behavior differs by bootstrap path:
+        // - forced/manual-trimmed discovery is already narrowed to bean-defining types
+        // - scanner-derived trimmed discovery keeps PAT visibility of discovered types
+        boolean trimAtTypeDiscovery = BeanArchiveMode.TRIMMED.equals(forcedBeanArchiveMode)
+                || explicitlyAddedDiscoveredClasses.contains(clazz);
+        if (BeanArchiveMode.TRIMMED.equals(mode)) {
+            if (!trimAtTypeDiscovery) {
+                return true;
+            }
+            if (clazz.isInterface() || clazz.isEnum() || clazz.isAnnotation()) {
+                return false;
+            }
+            return hasBeanDefiningAnnotation(clazz);
+        }
+        // IMPLICIT discovery includes only bean-defining classes.
+        if (clazz.isInterface() || clazz.isEnum() || clazz.isAnnotation()) {
+            return false;
+        }
+        return hasBeanDefiningAnnotation(clazz);
     }
 
 }
