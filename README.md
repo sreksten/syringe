@@ -147,7 +147,7 @@ SE integration module:
 
 ### `syringe-full`
 
-Full-runtime/integration-test module used in this repository to run the full CDI feature set together.
+Full-runtime/integration-test modules used to run the full CDI feature set together.
 This module publishes the aggregate artifact `com.threeamigos:syringe`.
 
 ## Primer: How to Use Syringe
@@ -261,7 +261,7 @@ Result:
 
 The shaded aggregate JAR includes only Syringe modules (`syringe-*`) and excludes non-Syringe dependencies.
 
-### Install aggregate artifact to local Maven repository
+### Install aggregate artifact to a local Maven repository
 
 ```bash
 mvn -pl syringe-full -am -DskipTests install
