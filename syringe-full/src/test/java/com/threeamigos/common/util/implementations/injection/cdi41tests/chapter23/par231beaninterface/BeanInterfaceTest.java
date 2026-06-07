@@ -2,7 +2,7 @@ package com.threeamigos.common.util.implementations.injection.cdi41tests.chapter
 
 import com.threeamigos.common.util.implementations.injection.Syringe;
 import com.threeamigos.common.util.implementations.injection.discovery.BeanArchiveMode;
-import com.threeamigos.common.util.implementations.injection.events.ObserverMethodInfo;
+import com.threeamigos.common.util.implementations.injection.events.ObserverMethodMetadata;
 import com.threeamigos.common.util.implementations.injection.spi.BeanManagerImpl;
 import com.threeamigos.common.util.implementations.messagehandler.InMemoryMessageHandler;
 import jakarta.annotation.Priority;
@@ -434,9 +434,9 @@ public class BeanInterfaceTest {
         return beanManager.resolve((Set) beans);
     }
 
-    private List<ObserverMethodInfo> observerInfosForBean(Syringe syringe, Class<?> beanClass) {
-        List<ObserverMethodInfo> infos = new ArrayList<ObserverMethodInfo>();
-        for (ObserverMethodInfo info : syringe.getKnowledgeBase().getObserverMethodInfos()) {
+    private List<ObserverMethodMetadata> observerInfosForBean(Syringe syringe, Class<?> beanClass) {
+        List<ObserverMethodMetadata> infos = new ArrayList<ObserverMethodMetadata>();
+        for (ObserverMethodMetadata info : syringe.getKnowledgeBase().getObserverMethodInfos()) {
             Method method = info.getObserverMethod();
             if (method != null && beanClass.equals(method.getDeclaringClass())) {
                 infos.add(info);
@@ -445,8 +445,8 @@ public class BeanInterfaceTest {
         return infos;
     }
 
-    private ObserverMethodInfo observerInfoByMethodName(Syringe syringe, String methodName) {
-        for (ObserverMethodInfo info : observerInfosForBean(syringe, ObserverMetadataBean.class)) {
+    private ObserverMethodMetadata observerInfoByMethodName(Syringe syringe, String methodName) {
+        for (ObserverMethodMetadata info : observerInfosForBean(syringe, ObserverMetadataBean.class)) {
             Method method = info.getObserverMethod();
             if (method != null && methodName.equals(method.getName())) {
                 return info;
@@ -456,9 +456,9 @@ public class BeanInterfaceTest {
     }
 
     @SuppressWarnings("unchecked")
-    private ObserverMethod<?> createObserverMethodFromInfo(BeanManagerImpl beanManager, ObserverMethodInfo info) {
+    private ObserverMethod<?> createObserverMethodFromInfo(BeanManagerImpl beanManager, ObserverMethodMetadata info) {
         try {
-            Method factory = BeanManagerImpl.class.getDeclaredMethod("createObserverMethod", ObserverMethodInfo.class);
+            Method factory = BeanManagerImpl.class.getDeclaredMethod("createObserverMethod", ObserverMethodMetadata.class);
             factory.setAccessible(true);
             return (ObserverMethod<?>) factory.invoke(beanManager, info);
         } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {

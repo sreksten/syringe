@@ -16,14 +16,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationExtractors.getNamedAnnotation;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationExtractors.getTargetAnnotation;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.hasNamedAnnotation;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.hasQualifierAnnotation;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.hasStereotypeAnnotation;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.hasTargetAnnotation;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.hasTypedAnnotation;
-import static com.threeamigos.common.util.implementations.injection.annotations.QualifiersHelper.*;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
 
 /**
  * Validates stereotype-related declarations and collects stereotype priorities.

@@ -1,7 +1,5 @@
 package com.threeamigos.common.util.implementations.injection.resolution;
 
-import com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates;
-
 import com.threeamigos.common.util.implementations.injection.scopes.InjectionPointImpl;
 import jakarta.enterprise.context.spi.CreationalContext;
 import jakarta.enterprise.inject.spi.*;
@@ -13,6 +11,8 @@ import java.lang.reflect.Parameter;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasDisposesAnnotation;
 
 /**
  * Factory for creating Producer instances for fields and methods.
@@ -292,7 +292,7 @@ public class ProducerFactoryImpl<X> implements ProducerFactory<X> {
 
     private static int findDisposerParameterIndex(Parameter[] parameters) {
         for (int i = 0; i < parameters.length; i++) {
-            if (AnnotationPredicates.hasDisposesAnnotation(parameters[i])) {
+            if (hasDisposesAnnotation(parameters[i])) {
                 return i;
             }
         }
@@ -311,7 +311,7 @@ public class ProducerFactoryImpl<X> implements ProducerFactory<X> {
 
         for (int i = 0; i < parameters.length; i++) {
             Parameter parameter = parameters[i];
-            if (AnnotationPredicates.hasDisposesAnnotation(parameter)) {
+            if (hasDisposesAnnotation(parameter)) {
                 args[i] = disposedInstance;
             } else {
                 InjectionPoint ip = new InjectionPointImpl<>(parameter, declaringBean);

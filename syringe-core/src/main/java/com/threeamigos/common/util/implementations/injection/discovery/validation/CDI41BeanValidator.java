@@ -1,18 +1,15 @@
 package com.threeamigos.common.util.implementations.injection.discovery.validation;
 
-import com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates;
+import com.threeamigos.common.util.implementations.injection.annotations.*;
 import com.threeamigos.common.util.implementations.injection.*;
-import com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum;
 import com.threeamigos.common.util.implementations.injection.discovery.*;
 import com.threeamigos.common.util.implementations.injection.discovery.validation.bean.*;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.KnowledgeBase;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.ScopeMetadata;
 import com.threeamigos.common.util.implementations.injection.scopes.InjectionPointImpl;
-import com.threeamigos.common.util.implementations.injection.annotations.QualifiersHelper;
 import com.threeamigos.common.util.implementations.injection.resolution.BeanImpl;
 import com.threeamigos.common.util.implementations.injection.resolution.ProducerBean;
 import com.threeamigos.common.util.implementations.injection.resolution.TypeChecker;
-import com.threeamigos.common.util.implementations.injection.annotations.AnnotatedMetadataHelper;
 import com.threeamigos.common.util.implementations.injection.types.RawTypeExtractor;
 import jakarta.enterprise.inject.spi.Bean;
 import jakarta.enterprise.inject.spi.Annotated;
@@ -29,8 +26,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.*;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.*;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationExtractors.*;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
 import static com.threeamigos.common.util.implementations.injection.types.TypeClosureHelper.parameterizedDeclarationOf;
 import static com.threeamigos.common.util.implementations.injection.types.TypesHelper.containsTypeVariable;
 import static com.threeamigos.common.util.implementations.injection.types.TypesHelper.normalizeResolvedType;
@@ -314,7 +310,7 @@ public class CDI41BeanValidator {
 
         // 6) Constructor rules (only if it is a bean OR it has injection points / producers)
         boolean hasInjectConstructor = Arrays.stream(clazz.getDeclaredConstructors())
-                .anyMatch(AnnotationPredicates::hasInjectAnnotation);
+                .anyMatch(AnnotationsHelper::hasInjectAnnotation);
         boolean relevantClass = hasInjectionPoints || hasAnyProducer(clazz) || hasInjectConstructor;
         if (relevantClass) {
             @SuppressWarnings("unchecked")
@@ -780,31 +776,31 @@ public class CDI41BeanValidator {
         if (element instanceof Class<?>) {
             return annotationsOf((Class<?>) element);
         }
-        return AnnotatedMetadataHelper.annotationsOf(currentAnnotatedTypeOverride, element);
+        return AnnotationsHelper.annotationsOf(currentAnnotatedTypeOverride, element);
     }
 
     public Type baseTypeOf(Field field) {
-        return AnnotatedMetadataHelper.baseTypeOf(currentAnnotatedTypeOverride, field);
+        return AnnotationsHelper.baseTypeOf(currentAnnotatedTypeOverride, field);
     }
 
     public Type baseTypeOf(Method method) {
-        return AnnotatedMetadataHelper.baseTypeOf(currentAnnotatedTypeOverride, method);
+        return AnnotationsHelper.baseTypeOf(currentAnnotatedTypeOverride, method);
     }
 
     public Type baseTypeOf(Parameter parameter) {
-        return AnnotatedMetadataHelper.baseTypeOf(currentAnnotatedTypeOverride, parameter);
+        return AnnotationsHelper.baseTypeOf(currentAnnotatedTypeOverride, parameter);
     }
 
     public Set<Type> typeClosureOf(Method method) {
-        return AnnotatedMetadataHelper.typeClosureOf(currentAnnotatedTypeOverride, method);
+        return AnnotationsHelper.typeClosureOf(currentAnnotatedTypeOverride, method);
     }
 
     public Set<Type> typeClosureOf(Field field) {
-        return AnnotatedMetadataHelper.typeClosureOf(currentAnnotatedTypeOverride, field);
+        return AnnotationsHelper.typeClosureOf(currentAnnotatedTypeOverride, field);
     }
 
     public Annotated annotatedOf(AnnotatedElement element) {
-        return AnnotatedMetadataHelper.annotatedOf(currentAnnotatedTypeOverride, element);
+        return AnnotationsHelper.annotatedOf(currentAnnotatedTypeOverride, element);
     }
 
     public boolean hasInjectAnnotation(AnnotatedElement element) {
@@ -844,19 +840,19 @@ public class CDI41BeanValidator {
     }
 
     public boolean hasAlternativeAnnotation(AnnotatedElement element) {
-        return AnnotationPredicates.hasAlternativeAnnotation(element);
+        return AnnotationsHelper.hasAlternativeAnnotation(element);
     }
 
     public boolean hasDecoratorAnnotation(Class<?> clazz) {
-        return AnnotationPredicates.hasDecoratorAnnotation(clazz);
+        return AnnotationsHelper.hasDecoratorAnnotation(clazz);
     }
 
     public boolean hasSpecializesAnnotation(AnnotatedElement element) {
-        return AnnotationPredicates.hasSpecializesAnnotation(element);
+        return AnnotationsHelper.hasSpecializesAnnotation(element);
     }
 
     public Integer getPriorityValue(AnnotatedElement element) {
-        return com.threeamigos.common.util.implementations.injection.annotations.AnnotationExtractors.getPriorityValue(element);
+        return AnnotationsHelper.getPriorityValue(element);
     }
 
     private boolean hasAnnotation(AnnotatedElement element, AnnotationsEnum annotation) {
@@ -1035,7 +1031,7 @@ public class CDI41BeanValidator {
         if (qualifierType == null) {
             return false;
         }
-        Set<Annotation> qualifiers = QualifiersHelper.extractQualifierAnnotations(annotations);
+        Set<Annotation> qualifiers = AnnotationsHelper.extractQualifierAnnotations(annotations);
         for (Annotation qualifier : qualifiers) {
             if (qualifierType.matches(qualifier.annotationType())) {
                 return true;
@@ -1058,7 +1054,7 @@ public class CDI41BeanValidator {
     }
 
     public boolean hasDefaultQualifier(Annotation[] annotations) {
-        Set<Annotation> qualifiers = QualifiersHelper.extractQualifierAnnotations(annotations);
+        Set<Annotation> qualifiers = AnnotationsHelper.extractQualifierAnnotations(annotations);
         if (qualifiers.isEmpty()) {
             return true;
         }
@@ -1481,7 +1477,7 @@ public class CDI41BeanValidator {
             }
         }
 
-        Set<Annotation> normalizedQualifiers = QualifiersHelper.normalizeBeanQualifiers(mergedQualifiers);
+        Set<Annotation> normalizedQualifiers = AnnotationsHelper.normalizeBeanQualifiers(mergedQualifiers);
         if (inheritedDefaultQualifier) {
             normalizedQualifiers.add(jakarta.enterprise.inject.Default.Literal.INSTANCE);
         }
@@ -1606,7 +1602,7 @@ public class CDI41BeanValidator {
 
     private boolean hasValidBeanConstructorSignature(Class<?> clazz) {
         List<Constructor<?>> injectConstructors = Arrays.stream(clazz.getDeclaredConstructors())
-                .filter(AnnotationPredicates::hasInjectAnnotation)
+                .filter(AnnotationsHelper::hasInjectAnnotation)
                 .collect(Collectors.toList());
 
         if (injectConstructors.size() > 1) {
@@ -2111,7 +2107,7 @@ public class CDI41BeanValidator {
      */
     public boolean hasDelegateAnnotation(AnnotatedElement element) {
         for (Annotation ann : annotationsOf(element)) {
-            if (AnnotationPredicates.hasDelegateAnnotation(ann.annotationType())) {
+            if (AnnotationsHelper.hasDelegateAnnotation(ann.annotationType())) {
                 return true;
             }
         }

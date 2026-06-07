@@ -1,7 +1,5 @@
 package com.threeamigos.common.util.implementations.injection.spi.spievents;
 
-import com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates;
-
 import com.threeamigos.common.util.implementations.injection.spi.wrappers.AnnotatedConstructorWrapper;
 import com.threeamigos.common.util.implementations.injection.spi.wrappers.AnnotatedFieldWrapper;
 import com.threeamigos.common.util.implementations.injection.spi.wrappers.AnnotatedMethodWrapper;
@@ -23,8 +21,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.isCdiInheritableTypeAnnotation;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.isScopeOrNormalScopeAnnotation;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
 
 /**
  * Minimal AnnotatedType implementation used for SPI events where full
@@ -110,7 +107,7 @@ public class SimpleAnnotatedType<T> implements AnnotatedType<T> {
                 if (annotationsByType.containsKey(annotationType)) {
                     continue;
                 }
-                if (!AnnotationPredicates.hasInheritedAnnotation(annotationType)) {
+                if (!hasInheritedAnnotation(annotationType)) {
                     continue;
                 }
                 if (!isCdiInheritableTypeAnnotation(annotationType)) {

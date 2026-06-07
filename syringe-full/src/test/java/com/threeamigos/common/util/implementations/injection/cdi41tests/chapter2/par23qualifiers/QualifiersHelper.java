@@ -17,7 +17,7 @@ public final class QualifiersHelper {
      * Delegates bean qualifier normalization to production helper logic.
      */
     public static Set<Annotation> extractBeanQualifiers(Annotation[] annotations) {
-        return com.threeamigos.common.util.implementations.injection.annotations.QualifiersHelper.extractBeanQualifiers(annotations);
+        return com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.extractBeanQualifiers(annotations);
     }
 
     /**

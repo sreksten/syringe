@@ -1,6 +1,6 @@
 package com.threeamigos.common.util.implementations.injection.bce;
 
-import com.threeamigos.common.util.implementations.injection.events.ObserverMethodInfo;
+import com.threeamigos.common.util.implementations.injection.events.ObserverMethodMetadata;
 import jakarta.enterprise.inject.build.compatible.spi.BeanInfo;
 import jakarta.enterprise.inject.build.compatible.spi.ObserverInfo;
 import jakarta.enterprise.inject.spi.ObserverMethod;
@@ -20,18 +20,18 @@ import java.util.List;
 
 final class BceObserverInfo implements ObserverInfo {
 
-    private final ObserverMethodInfo delegate;
+    private final ObserverMethodMetadata delegate;
 
-    private BceObserverInfo(ObserverMethodInfo delegate) {
+    private BceObserverInfo(ObserverMethodMetadata delegate) {
         this.delegate = delegate;
     }
 
-    static Collection<ObserverInfo> from(Collection<ObserverMethodInfo> observerMethodInfos) {
+    static Collection<ObserverInfo> from(Collection<ObserverMethodMetadata> observerMethodInfos) {
         if (observerMethodInfos == null || observerMethodInfos.isEmpty()) {
             return Collections.emptyList();
         }
         List<ObserverInfo> out = new ArrayList<>();
-        for (ObserverMethodInfo info : observerMethodInfos) {
+        for (ObserverMethodMetadata info : observerMethodInfos) {
             out.add(new BceObserverInfo(info));
         }
         out.sort(Comparator
@@ -51,18 +51,58 @@ final class BceObserverInfo implements ObserverInfo {
             return Collections.emptyList();
         }
         List<ObserverInfo> out = new ArrayList<>();
-        for (ObserverMethod<?> syntheticObserver : syntheticObserverMethods) {
-            ObserverMethodInfo info = new ObserverMethodInfo(
-                syntheticObserver.getObservedType(),
-                syntheticObserver.getObservedQualifiers(),
-                syntheticObserver.getReception(),
-                syntheticObserver.getTransactionPhase(),
-                syntheticObserver.getPriority(),
-                syntheticObserver.isAsync(),
-                null,
-                syntheticObserver
-            );
-            out.add(new BceObserverInfo(info));
+        for (final ObserverMethod<?> syntheticObserver : syntheticObserverMethods) {
+            out.add(new BceObserverInfo(new ObserverMethodMetadata() {
+                @Override
+                public Method getObserverMethod() {
+                    return null;
+                }
+
+                @Override
+                public java.lang.reflect.Type getEventType() {
+                    return syntheticObserver.getObservedType();
+                }
+
+                @Override
+                public java.util.Set<Annotation> getQualifiers() {
+                    return syntheticObserver.getObservedQualifiers();
+                }
+
+                @Override
+                public jakarta.enterprise.event.Reception getReception() {
+                    return syntheticObserver.getReception();
+                }
+
+                @Override
+                public jakarta.enterprise.event.TransactionPhase getTransactionPhase() {
+                    return syntheticObserver.getTransactionPhase();
+                }
+
+                @Override
+                public boolean isAsync() {
+                    return syntheticObserver.isAsync();
+                }
+
+                @Override
+                public jakarta.enterprise.inject.spi.Bean<?> getDeclaringBean() {
+                    return null;
+                }
+
+                @Override
+                public int getPriority() {
+                    return syntheticObserver.getPriority();
+                }
+
+                @Override
+                public int getObservedParameterPosition() {
+                    return -1;
+                }
+
+                @Override
+                public ObserverMethod<?> getSyntheticObserver() {
+                    return syntheticObserver;
+                }
+            }));
         }
         out.sort(Comparator
             .comparing((ObserverInfo i) -> i.declaringClass().name())

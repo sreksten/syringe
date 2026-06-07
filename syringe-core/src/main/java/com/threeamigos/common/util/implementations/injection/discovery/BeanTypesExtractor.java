@@ -19,8 +19,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationExtractors.getTypedAnnotation;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.hasTypedAnnotation;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.getTypedAnnotation;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasTypedAnnotation;
 
 /**
  * Extracts bean type sets for managed beans and producers.

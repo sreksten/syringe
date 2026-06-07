@@ -1,8 +1,5 @@
 package com.threeamigos.common.util.implementations.injection.spi;
 
-import com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates;
-
-import com.threeamigos.common.util.implementations.injection.interceptors.InterceptorAwareProxyGenerator;
 import com.threeamigos.common.util.implementations.injection.resolution.BeanImpl;
 import com.threeamigos.common.util.implementations.injection.scopes.InjectionPointImpl;
 import com.threeamigos.common.util.implementations.injection.spi.configurators.AnnotatedTypeConfiguratorImpl;
@@ -29,9 +26,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.WeakHashMap;
 
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasInjectAnnotation;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.hasPostConstructAnnotation;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.hasPreDestroyAnnotation;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
 import static com.threeamigos.common.util.implementations.injection.types.ClassHelper.collectClassHierarchy;
 
 /**
@@ -302,17 +297,27 @@ public class InjectionTargetFactoryImpl<T> implements InjectionTargetFactory<T> 
         @SuppressWarnings("unchecked")
         private T unwrapProxyTarget(T instance) {
             Object candidate = instance;
-            if (candidate instanceof InterceptorAwareProxyGenerator.InterceptorProxyState) {
-                Object target = ((InterceptorAwareProxyGenerator.InterceptorProxyState) candidate).$$_getTargetInstance();
-                if (target != null) {
-                    candidate = target;
-                }
-            }
+            candidate = unwrapInterceptorProxyTarget(candidate);
             candidate = resolveWrappedTarget(candidate);
             if (candidate != null && annotatedType.getJavaClass().isInstance(candidate)) {
                 return (T) candidate;
             }
             return instance;
+        }
+
+        private Object unwrapInterceptorProxyTarget(Object candidate) {
+            if (candidate == null) {
+                return null;
+            }
+            try {
+                Method getter = candidate.getClass().getMethod("$$_getTargetInstance");
+                Object target = getter.invoke(candidate);
+                return target != null ? target : candidate;
+            } catch (NoSuchMethodException ignored) {
+                return candidate;
+            } catch (Exception ignored) {
+                return candidate;
+            }
         }
 
         private Object resolveWrappedTarget(Object instance) {
@@ -685,15 +690,15 @@ public class InjectionTargetFactoryImpl<T> implements InjectionTargetFactory<T> 
         }
 
         private boolean isInjectableConstructor(Constructor<?> constructor) {
-            return injectableConstructors.contains(constructor) || AnnotationPredicates.hasInjectAnnotation(constructor);
+            return injectableConstructors.contains(constructor) || hasInjectAnnotation(constructor);
         }
 
         private boolean isInjectableField(Field field) {
-            return injectableFields.contains(field) || AnnotationPredicates.hasInjectAnnotation(field);
+            return injectableFields.contains(field) || hasInjectAnnotation(field);
         }
 
         private boolean isInjectableMethod(Method method) {
-            return injectableMethods.contains(method) || AnnotationPredicates.hasInjectAnnotation(method);
+            return injectableMethods.contains(method) || hasInjectAnnotation(method);
         }
 
         private static final class ResolvedInjectionPoint implements InjectionPoint, java.io.Serializable {

@@ -1,6 +1,6 @@
 package com.threeamigos.common.util.implementations.injection.knowledgebase;
 
-import com.threeamigos.common.util.implementations.injection.events.ObserverMethodInfo;
+import com.threeamigos.common.util.implementations.injection.events.ObserverMethodMetadata;
 import com.threeamigos.common.util.implementations.injection.resolution.ProducerBean;
 import jakarta.enterprise.inject.spi.Bean;
 import jakarta.enterprise.inject.spi.ObserverMethod;
@@ -19,7 +19,7 @@ final class KnowledgeBaseBeanRegistryStore {
     private final Collection<Class<?>> decorators = new ConcurrentLinkedQueue<>();
     private final Collection<InterceptorInfo> interceptorInfos = new ConcurrentLinkedQueue<>();
     private final Collection<DecoratorInfo> decoratorInfos = new ConcurrentLinkedQueue<>();
-    private final Collection<ObserverMethodInfo> observerMethodInfos = new ConcurrentLinkedQueue<>();
+    private final Collection<ObserverMethodMetadata> observerMethodInfos = new ConcurrentLinkedQueue<>();
     private final Collection<ObserverMethod<?>> syntheticObserverMethods = new ConcurrentLinkedQueue<>();
     private final Set<Bean<?>> ignoreFinalMethodsBeans = Collections.newSetFromMap(new IdentityHashMap<>());
     private volatile boolean observerMethodsDiscovered;
@@ -72,11 +72,11 @@ final class KnowledgeBaseBeanRegistryStore {
         return decoratorInfos;
     }
 
-    void addObserverMethodInfo(ObserverMethodInfo observerMethodInfo) {
+    void addObserverMethodInfo(ObserverMethodMetadata observerMethodInfo) {
         observerMethodInfos.add(observerMethodInfo);
     }
 
-    Collection<ObserverMethodInfo> getObserverMethodInfos() {
+    Collection<ObserverMethodMetadata> getObserverMethodInfos() {
         return observerMethodInfos;
     }
 

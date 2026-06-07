@@ -1,8 +1,5 @@
 package com.threeamigos.common.util.implementations.injection.cdi41tests.chapter10.par103usinginvokerbuilder;
 
-import com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates;
-
-import com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum;
 import com.threeamigos.common.util.implementations.injection.Syringe;
 import com.threeamigos.common.util.implementations.injection.discovery.BeanArchiveMode;
 import com.threeamigos.common.util.implementations.injection.discovery.NonPortableBehaviourException;
@@ -54,6 +51,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasRegistrationAnnotation;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -92,7 +90,7 @@ public class UsingInvokerBuilderTest {
     public void shouldAllowInvokerFactoryParameterOnRegistrationMethod() throws Exception {
         Method registration = ExampleBuildCompatibleExtension.class.getDeclaredMethod("registration", InvokerFactory.class);
 
-        assertTrue(AnnotationPredicates.hasRegistrationAnnotation(registration));
+        assertTrue(hasRegistrationAnnotation(registration));
         assertEquals(1, registration.getParameterCount());
         assertEquals(InvokerFactory.class, registration.getParameterTypes()[0]);
     }

@@ -1,20 +1,16 @@
 package com.threeamigos.common.util.implementations.injection.extensions;
 
 import com.threeamigos.common.util.implementations.injection.Syringe;
-import com.threeamigos.common.util.implementations.injection.annotations.AnnotatedMetadataHelper;
 import com.threeamigos.common.util.implementations.injection.beansxml.BeansXml;
 import com.threeamigos.common.util.implementations.injection.builtinbeans.ActivateRequestContextInterceptor;
 import com.threeamigos.common.util.implementations.injection.discovery.BeanArchiveMode;
 import com.threeamigos.common.util.implementations.injection.discovery.NonPortableBehaviourException;
-import com.threeamigos.common.util.implementations.injection.events.ObserverMethodInfo;
-import com.threeamigos.common.util.implementations.injection.events.ObserverMethodInfoKey;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.KnowledgeBase;
-import com.threeamigos.common.util.implementations.injection.resolution.GenericTypeResolver;
+import com.threeamigos.common.util.implementations.injection.spi.Phase;
 import com.threeamigos.common.util.implementations.injection.spi.SPIUtils;
 import com.threeamigos.common.util.implementations.injection.spi.spievents.*;
 import com.threeamigos.common.util.interfaces.messagehandler.MessageHandler;
-import jakarta.enterprise.event.Reception;
-import jakarta.enterprise.event.TransactionPhase;
+import jakarta.enterprise.context.spi.Context;
 import jakarta.enterprise.inject.spi.*;
 import jakarta.enterprise.inject.spi.AnnotatedType;
 
@@ -22,12 +18,8 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.*;
 import java.util.*;
 
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotatedMetadataHelper.*;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationExtractors.getPriorityValue;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.*;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.hasDecoratorAnnotation;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
 import static com.threeamigos.common.util.implementations.injection.spi.SPIUtils.isBeforeShutdownLifecycleEvent;
-import static com.threeamigos.common.util.implementations.injection.spi.SPIUtils.isContainerLifecycleObservedType;
 import static com.threeamigos.common.util.implementations.injection.types.RawTypeExtractor.extractRawClass;
 
 /**
@@ -164,65 +156,10 @@ public class ExtensionsManagerImpl implements ExtensionsManager {
     }
 
     @Override
-    public void registerRuntimeExtensionObserverMethods() {
-        if (extensions.isEmpty()) {
-            return;
-        }
-
-        Set<String> existingKeys = new HashSet<>();
-        for (ObserverMethodInfo info : knowledgeBase.getObserverMethodInfos()) {
-            existingKeys.add(observerInfoKey(info));
-        }
-
-        for (Extension extension : extensions) {
-            Bean<?> declaringBean = resolveExtensionDeclaringBean(extension);
-            if (declaringBean == null) {
-                continue;
-            }
-
-            for (Method method : getExtensionObserverCandidateMethods(extension.getClass())) {
-                Class<?> observedRawType = resolveObservedRawTypeForLifecycleObserver(method, declaringBean);
-                if (observedRawType != null && isContainerLifecycleObservedType(observedRawType)) {
-                    continue;
-                }
-                ObserverMethodInfo info = toObserverInfoForLifecycleDispatch(method, declaringBean);
-                if (info == null) {
-                    continue;
-                }
-                String key = observerInfoKey(info);
-                if (!existingKeys.add(key)) {
-                    continue;
-                }
-                knowledgeBase.addObserverMethodInfo(info);
-            }
-        }
-    }
-
-    @Override
     public void clear() {
         extensionClassNames.clear();
         extensionInstances.clear();
         extensions.clear();
-    }
-
-    private String observerInfoKey(ObserverMethodInfo info) {
-        return ObserverMethodInfoKey.of(info);
-    }
-
-    private Bean<?> resolveExtensionDeclaringBean(Extension extension) {
-        if (extension == null) {
-            return null;
-        }
-        Class<?> extensionClass = extension.getClass();
-        for (Bean<?> bean : knowledgeBase.getBeans()) {
-            if (bean == null || bean.getBeanClass() == null) {
-                continue;
-            }
-            if (bean.getBeanClass().equals(extensionClass)) {
-                return bean;
-            }
-        }
-        return null;
     }
 
     private Collection<Method> getExtensionObserverCandidateMethods(Class<?> extensionClass) {
@@ -238,164 +175,6 @@ public class ExtensionsManagerImpl implements ExtensionsManager {
         return methodsBySignature.values();
     }
 
-    private Class<?> resolveObservedRawTypeForLifecycleObserver(Method method, Bean<?> declaringBean) {
-        if (method == null || declaringBean == null || declaringBean.getBeanClass() == null) {
-            return null;
-        }
-
-        int observesCount = 0;
-        int observesAsyncCount = 0;
-        Type observedParameterBaseType = null;
-
-        AnnotatedMethod<?> annotatedMethod = null;
-        AnnotatedType<?> override = knowledgeBase.getAnnotatedTypeOverride(declaringBean.getBeanClass());
-        if (override != null) {
-            annotatedMethod = AnnotatedMetadataHelper.findAnnotatedMethod(override, method);
-        }
-
-        Parameter[] parameters = method.getParameters();
-        for (int i = 0; i < parameters.length; i++) {
-            Parameter parameter = parameters[i];
-            AnnotatedParameter<?> annotatedParameter = annotatedMethod != null
-                    ? findAnnotatedParameter(annotatedMethod, i)
-                    : null;
-            Annotation[] parameterAnnotations = annotatedParameter != null
-                    ? annotatedParameter.getAnnotations().toArray(new Annotation[0])
-                    : parameter.getAnnotations();
-            Type parameterBaseType = annotatedParameter != null
-                    ? annotatedParameter.getBaseType()
-                    : parameter.getParameterizedType();
-
-            if (hasObservesAnnotationIn(parameterAnnotations)) {
-                observesCount++;
-                observedParameterBaseType = parameterBaseType;
-            }
-            if (hasObservesAsyncAnnotationIn(parameterAnnotations)) {
-                observesAsyncCount++;
-                observedParameterBaseType = parameterBaseType;
-            }
-        }
-
-        if (observesCount == 0 && observesAsyncCount == 0) {
-            return null;
-        }
-        if (observesCount + observesAsyncCount != 1 || observedParameterBaseType == null) {
-            return null;
-        }
-
-        Type resolvedObservedType = GenericTypeResolver.resolve(
-                observedParameterBaseType,
-                declaringBean.getBeanClass(),
-                method.getDeclaringClass());
-        return extractRawClass(resolvedObservedType);
-    }
-
-    private ObserverMethodInfo toObserverInfoForLifecycleDispatch(Method method, Bean<?> declaringBean) {
-        int observesCount = 0;
-        int observesAsyncCount = 0;
-        Parameter observedParameter = null;
-        Annotation[] observedParameterAnnotations = null;
-        Type observedParameterBaseType = null;
-        int observedParameterPosition = -1;
-        AnnotatedMethod<?> annotatedMethod = null;
-        AnnotatedType<?> override = declaringBean != null
-                ? knowledgeBase.getAnnotatedTypeOverride(declaringBean.getBeanClass())
-                : null;
-        if (override != null) {
-            annotatedMethod = AnnotatedMetadataHelper.findAnnotatedMethod(override, method);
-        }
-
-        Parameter[] parameters = method.getParameters();
-        for (int i = 0; i < parameters.length; i++) {
-            Parameter parameter = parameters[i];
-            AnnotatedParameter<?> annotatedParameter = annotatedMethod != null
-                    ? findAnnotatedParameter(annotatedMethod, i)
-                    : null;
-            Annotation[] parameterAnnotations = annotatedParameter != null
-                    ? annotatedParameter.getAnnotations().toArray(new Annotation[0])
-                    : parameter.getAnnotations();
-            Type parameterBaseType = annotatedParameter != null
-                    ? annotatedParameter.getBaseType()
-                    : parameter.getParameterizedType();
-
-            if (hasObservesAnnotationIn(parameterAnnotations)) {
-                observesCount++;
-                observedParameter = parameter;
-                observedParameterAnnotations = parameterAnnotations;
-                observedParameterBaseType = parameterBaseType;
-                observedParameterPosition = i;
-            }
-            if (hasObservesAsyncAnnotationIn(parameterAnnotations)) {
-                observesAsyncCount++;
-                observedParameter = parameter;
-                observedParameterAnnotations = parameterAnnotations;
-                observedParameterBaseType = parameterBaseType;
-                observedParameterPosition = i;
-            }
-        }
-
-        if (observesCount == 0 && observesAsyncCount == 0) {
-            return null;
-        }
-        if (observesCount + observesAsyncCount != 1 || observedParameter == null) {
-            return null;
-        }
-
-        if (resolveWithAnnotationsFilter(observedParameter) != null) {
-            throw new DefinitionException("@WithAnnotations is only valid on extension observer parameters " +
-                    "observing ProcessAnnotatedType: " +
-                    method.getDeclaringClass().getName() + "." + method.getName());
-        }
-
-        boolean async = observesAsyncCount > 0;
-        Type eventType = GenericTypeResolver.resolve(
-                observedParameterBaseType != null ? observedParameterBaseType : observedParameter.getParameterizedType(),
-                declaringBean.getBeanClass(),
-                method.getDeclaringClass()
-        );
-        Set<Annotation> qualifiers = extractObserverQualifiers(
-                observedParameterAnnotations != null ? observedParameterAnnotations : observedParameter.getAnnotations());
-        Reception reception = Reception.ALWAYS;
-        TransactionPhase transactionPhase = TransactionPhase.IN_PROGRESS;
-        int priority = jakarta.interceptor.Interceptor.Priority.APPLICATION + 500;
-
-        if (async) {
-            jakarta.enterprise.event.ObservesAsync observesAsync = getObservesAsyncAnnotationFrom(
-                    observedParameterAnnotations != null ? observedParameterAnnotations : observedParameter.getAnnotations());
-            if (observesAsync != null) {
-                reception = observesAsync.notifyObserver();
-            }
-        } else {
-            jakarta.enterprise.event.Observes observes = getObservesAnnotationFrom(
-                    observedParameterAnnotations != null ? observedParameterAnnotations : observedParameter.getAnnotations());
-            if (observes != null) {
-                reception = observes.notifyObserver();
-                transactionPhase = observes.during();
-            }
-            Integer paramPriority = getPriorityValueFromAnnotations(
-                    observedParameterAnnotations != null ? observedParameterAnnotations : observedParameter.getAnnotations());
-            if (paramPriority != null) {
-                priority = paramPriority;
-            } else {
-                Integer methodPriority = getPriorityValue(method);
-                if (methodPriority != null) {
-                    priority = methodPriority;
-                }
-            }
-        }
-
-        return new ObserverMethodInfo(
-                method,
-                eventType,
-                qualifiers,
-                reception,
-                transactionPhase,
-                async,
-                declaringBean,
-                priority,
-                observedParameterPosition
-        );
-    }
 
     /**
      * Fires an event to all registered extensions by invoking their observer methods.
@@ -480,6 +259,159 @@ public class ExtensionsManagerImpl implements ExtensionsManager {
                 }
             }
         }
+    }
+
+    @Override
+    public ProcessAnnotatedTypeResult processAnnotatedType(AnnotatedType<?> annotatedType) {
+        if (annotatedType == null) {
+            return new ProcessAnnotatedTypeResult(false, null);
+        }
+        ProcessAnnotatedTypeImpl<?> event = new ProcessAnnotatedTypeImpl<>(messageHandler, annotatedType);
+        fireEventToExtensions(event);
+        AnnotatedType<?> finalAnnotatedType = event.getAnnotatedTypeInternal();
+        if (finalAnnotatedType == null) {
+            finalAnnotatedType = annotatedType;
+        }
+        return new ProcessAnnotatedTypeResult(event.isVetoed(), finalAnnotatedType);
+    }
+
+    @Override
+    public InjectionPoint processInjectionPoint(InjectionPoint injectionPoint) {
+        if (injectionPoint == null) {
+            return null;
+        }
+        ProcessInjectionPointImpl<?, ?> event =
+                new ProcessInjectionPointImpl<>(messageHandler, injectionPoint, knowledgeBase);
+        fireEventToExtensions(event);
+        InjectionPoint updated = event.getInjectionPointInternal();
+        return updated != null ? updated : injectionPoint;
+    }
+
+    @Override
+    public <T> InjectionTarget<T> processInjectionTarget(AnnotatedType<T> annotatedType, InjectionTarget<T> injectionTarget) {
+        if (annotatedType == null || injectionTarget == null) {
+            return injectionTarget;
+        }
+        ProcessInjectionTargetImpl<T> event =
+                new ProcessInjectionTargetImpl<>(messageHandler, knowledgeBase, annotatedType, injectionTarget);
+        fireEventToExtensions(event);
+        InjectionTarget<T> finalTarget = event.getInjectionTargetInternal();
+        return finalTarget != null ? finalTarget : injectionTarget;
+    }
+
+    @Override
+    public <T> ProcessBeanAttributesResult<T> processBeanAttributes(Annotated annotated, BeanAttributes<T> beanAttributes) {
+        if (annotated == null || beanAttributes == null) {
+            return new ProcessBeanAttributesResult<T>(false, false, beanAttributes);
+        }
+        ProcessBeanAttributesImpl<T> event =
+                new ProcessBeanAttributesImpl<>(messageHandler, annotated, beanAttributes, knowledgeBase);
+        fireEventToExtensions(event);
+        BeanAttributes<T> finalAttributes = event.getBeanAttributesInternal();
+        if (finalAttributes == null) {
+            finalAttributes = beanAttributes;
+        }
+        return new ProcessBeanAttributesResult<T>(event.isVetoed(), event.isIgnoreFinalMethods(), finalAttributes);
+    }
+
+    @Override
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public void processSyntheticBean(Bean<?> bean, Extension sourceExtension) {
+        if (bean == null) {
+            return;
+        }
+        ProcessSyntheticBeanImpl<?> event =
+                new ProcessSyntheticBeanImpl(messageHandler, knowledgeBase, (Bean) bean, sourceExtension);
+        fireEventToExtensions(event);
+    }
+
+    @Override
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public void processManagedBean(Bean<?> bean, AnnotatedType<?> annotatedType, BeanManager beanManager) {
+        if (bean == null || annotatedType == null || beanManager == null) {
+            return;
+        }
+        ProcessManagedBeanImpl<?> event = new ProcessManagedBeanImpl(
+                messageHandler, knowledgeBase, (Bean) bean, (AnnotatedType) annotatedType, beanManager);
+        fireEventToExtensions(event);
+    }
+
+    @Override
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public Producer<?> processProducer(Phase phase, AnnotatedMember<?> annotatedMember, Producer<?> producer) {
+        if (phase == null || annotatedMember == null || producer == null) {
+            return producer;
+        }
+        ProcessProducerImpl<?, ?> event = new ProcessProducerImpl(
+                messageHandler, knowledgeBase, phase, (AnnotatedMember) annotatedMember, (Producer) producer);
+        fireEventToExtensions(event);
+        Producer<?> finalProducer = event.getFinalProducer();
+        return finalProducer != null ? finalProducer : producer;
+    }
+
+    @Override
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public Producer<?> processProducerMethod(Bean<?> bean,
+                                             AnnotatedMethod<?> annotatedMethod,
+                                             Producer<?> producer,
+                                             AnnotatedParameter<?> disposedParameter) {
+        if (bean == null || annotatedMethod == null || producer == null) {
+            return producer;
+        }
+        ProcessProducerMethodImpl<?, ?> event = new ProcessProducerMethodImpl(
+                messageHandler, knowledgeBase, (Bean) bean, (AnnotatedMethod) annotatedMethod,
+                (Producer) producer, (AnnotatedParameter) disposedParameter);
+        fireEventToExtensions(event);
+        Producer<?> finalProducer = event.getFinalProducer();
+        return finalProducer != null ? finalProducer : producer;
+    }
+
+    @Override
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public Producer<?> processProducerField(Bean<?> bean,
+                                            AnnotatedField<?> annotatedField,
+                                            Producer<?> producer,
+                                            AnnotatedParameter<?> disposedParameter) {
+        if (bean == null || annotatedField == null || producer == null) {
+            return producer;
+        }
+        ProcessProducerFieldImpl<?, ?> event = new ProcessProducerFieldImpl(
+                messageHandler, knowledgeBase, (Bean) bean, (AnnotatedField) annotatedField,
+                (Producer) producer, (AnnotatedParameter) disposedParameter);
+        fireEventToExtensions(event);
+        Producer<?> finalProducer = event.getFinalProducer();
+        return finalProducer != null ? finalProducer : producer;
+    }
+
+    @Override
+    public void fireAfterBeanDiscovery(Map<Class<? extends Annotation>, Context> customContextsToRegister) {
+        AfterBeanDiscoveryImpl event = new AfterBeanDiscoveryImpl(
+                messageHandler, knowledgeBase, beanManager, this::fireEventToExtensions);
+
+        if (customContextsToRegister != null && !customContextsToRegister.isEmpty()) {
+            try {
+                event.beginObserverInvocation();
+                for (Map.Entry<Class<? extends Annotation>, Context> entry : customContextsToRegister.entrySet()) {
+                    event.addContext(entry.getValue());
+                }
+            } finally {
+                event.endObserverInvocation();
+            }
+        }
+
+        fireEventToExtensions(event);
+    }
+
+    @Override
+    public void fireAfterDeploymentValidation() {
+        AfterDeploymentValidation event = new AfterDeploymentValidationImpl(knowledgeBase);
+        fireEventToExtensions(event);
+    }
+
+    @Override
+    public void fireBeforeShutdown() {
+        BeforeShutdown event = new BeforeShutdownImpl();
+        fireEventToExtensions(event);
     }
 
     private void collectExtensionObserverMethods(Extension extension,

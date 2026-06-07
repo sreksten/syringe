@@ -1,7 +1,6 @@
 package com.threeamigos.common.util.implementations.injection.discovery.validation.bean;
 
 import com.threeamigos.common.util.implementations.injection.discovery.validation.CDI41BeanValidator;
-import com.threeamigos.common.util.implementations.injection.annotations.QualifiersHelper;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.KnowledgeBase;
 import com.threeamigos.common.util.implementations.injection.resolution.TypeChecker;
 import jakarta.enterprise.inject.spi.DefinitionException;
@@ -20,7 +19,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.hasNamedAnnotation;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
 
 /**
  * Extracted producer/disposer validation rules and specialization matching.
@@ -393,7 +392,7 @@ public class ProducerDisposerValidator {
         }
 
         Type disposesType = validator.baseTypeOf(disposesParameter);
-        Set<Annotation> requiredQualifiers = QualifiersHelper.extractQualifiers(validator.annotationsOf(disposesParameter));
+        Set<Annotation> requiredQualifiers = extractQualifiers(validator.annotationsOf(disposesParameter));
 
         for (Method producerMethod : clazz.getDeclaredMethods()) {
             if (!validator.hasProducesAnnotation(producerMethod)) {
@@ -456,8 +455,8 @@ public class ProducerDisposerValidator {
     private boolean matchesDisposesParameter(Parameter disposesParameter,
                                              Type producerType,
                                              Set<Annotation> producerQualifiers) {
-        Set<Annotation> requiredQualifiers = QualifiersHelper.extractQualifiers(validator.annotationsOf(disposesParameter));
-        if (!QualifiersHelper.qualifiersMatch(requiredQualifiers, producerQualifiers)) {
+        Set<Annotation> requiredQualifiers = extractQualifiers(validator.annotationsOf(disposesParameter));
+        if (!qualifiersMatch(requiredQualifiers, producerQualifiers)) {
             return false;
         }
 

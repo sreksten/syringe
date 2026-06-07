@@ -1,9 +1,7 @@
 package com.threeamigos.common.util.implementations.injection.resolution;
 
-import com.threeamigos.common.util.implementations.injection.annotations.AnnotationExtractors;
-
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.*;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.*;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
 
 import com.threeamigos.common.util.implementations.injection.util.LifecycleMethodHelper;
 import com.threeamigos.common.util.implementations.injection.scopes.InjectionPointImpl;
@@ -447,7 +445,7 @@ public class ProducerBean<T> implements Bean<T> {
         if (scopeType == null) {
             return false;
         }
-        Boolean passivating = AnnotationExtractors.getNormalScopePassivatingValue(scopeType);
+        Boolean passivating = getNormalScopePassivatingValue(scopeType);
         if (passivating != null) {
             return passivating;
         }

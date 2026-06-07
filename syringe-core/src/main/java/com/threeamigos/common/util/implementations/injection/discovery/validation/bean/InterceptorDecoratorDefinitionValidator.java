@@ -31,7 +31,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.hasInterceptorBindingAnnotation;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasInterceptorBindingAnnotation;
 
 /**
  * Extracted interceptor/decorator definition validation and registration rules.

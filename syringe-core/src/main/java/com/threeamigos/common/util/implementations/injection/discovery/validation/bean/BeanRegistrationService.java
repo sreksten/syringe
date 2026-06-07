@@ -1,7 +1,6 @@
 package com.threeamigos.common.util.implementations.injection.discovery.validation.bean;
 
 import com.threeamigos.common.util.implementations.injection.discovery.validation.CDI41BeanValidator;
-import com.threeamigos.common.util.implementations.injection.annotations.QualifiersHelper;
 import com.threeamigos.common.util.implementations.injection.discovery.BeanArchiveMode;
 import com.threeamigos.common.util.implementations.injection.discovery.BeanTypesExtractor;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.KnowledgeBase;
@@ -25,10 +24,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationExtractors.getPriorityValue;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.findNamedQualifier;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.hasNamedAnnotation;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.normalizeSingletonToApplicationScoped;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
 import static com.threeamigos.common.util.implementations.injection.types.ClassHelper.normalizeBeanName;
 
 /**
@@ -91,7 +87,7 @@ public class BeanRegistrationService {
 
             producerBean.setName(producerName);
             producerBean.setQualifiers(synchronizeNamedQualifier(
-                    QualifiersHelper.normalizeBeanQualifiers(producerQualifiers), producerName));
+                    normalizeBeanQualifiers(producerQualifiers), producerName));
             producerBean.setScope(extractScope(producerMethod));
             producerBean.setStereotypes(extractStereotypes(producerMethod));
 
@@ -131,7 +127,7 @@ public class BeanRegistrationService {
             String producerName = extractProducerName(producerField);
             producerBean.setName(producerName);
             producerBean.setQualifiers(synchronizeNamedQualifier(
-                    QualifiersHelper.normalizeBeanQualifiers(extractQualifiers(producerField)), producerName));
+                    normalizeBeanQualifiers(extractQualifiers(producerField)), producerName));
             producerBean.setScope(extractScope(producerField));
             producerBean.setStereotypes(extractStereotypes(producerField));
 
@@ -325,13 +321,13 @@ public class BeanRegistrationService {
 
     public Set<Annotation> extractQualifiers(AnnotatedElement element) {
         Annotation[] annotations = validator.annotationsOf(element);
-        Set<Annotation> qualifiers = QualifiersHelper.extractQualifierAnnotations(annotations);
+        Set<Annotation> qualifiers = extractQualifierAnnotations(annotations);
         for (Annotation annotation : annotations) {
             if (validator.isQualifierAnnotationType(annotation.annotationType())) {
                 qualifiers.add(annotation);
             }
         }
-        return QualifiersHelper.normalizeBeanQualifiers(qualifiers);
+        return normalizeBeanQualifiers(qualifiers);
     }
 
     public Set<Annotation> synchronizeNamedQualifier(Set<Annotation> qualifiers, String beanName) {

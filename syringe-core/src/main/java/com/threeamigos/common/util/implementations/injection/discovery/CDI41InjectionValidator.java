@@ -1,22 +1,19 @@
 package com.threeamigos.common.util.implementations.injection.discovery;
 
-import com.threeamigos.common.util.implementations.injection.annotations.QualifiersHelper;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.KnowledgeBase;
-import com.threeamigos.common.util.implementations.injection.events.ObserverMethodInfo;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.DecoratorInfo;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.InterceptorInfo;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.ScopeMetadata;
+import com.threeamigos.common.util.implementations.injection.annotations.legacy.LegacyNewSupport;
+import com.threeamigos.common.util.implementations.injection.annotations.legacy.NoOpLegacyNewSupport;
 import com.threeamigos.common.util.implementations.injection.resolution.BeanImpl;
-import com.threeamigos.common.util.implementations.injection.resolution.LegacyNewBeanAdapter;
 import com.threeamigos.common.util.implementations.injection.resolution.ProducerBean;
 import com.threeamigos.common.util.implementations.injection.resolution.TypeChecker;
 import com.threeamigos.common.util.implementations.injection.scopes.InjectionPointImpl;
 import com.threeamigos.common.util.implementations.injection.spi.SyntheticBean;
 import com.threeamigos.common.util.implementations.injection.spi.SyntheticProducerBeanImpl;
 import com.threeamigos.common.util.implementations.injection.annotations.AnnotationComparator;
-import com.threeamigos.common.util.implementations.injection.annotations.AnnotatedMetadataHelper;
 import com.threeamigos.common.util.implementations.injection.resolution.GenericTypeResolver;
-import com.threeamigos.common.util.implementations.injection.annotations.legacy.LegacyNewQualifierHelper;
 import com.threeamigos.common.util.implementations.injection.types.RawTypeExtractor;
 import jakarta.enterprise.inject.Default;
 import jakarta.enterprise.inject.Instance;
@@ -35,8 +32,7 @@ import jakarta.inject.Provider;
 import java.lang.annotation.Annotation;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.*;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.*;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationExtractors.*;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -81,7 +77,7 @@ public class CDI41InjectionValidator {
 
     private final KnowledgeBase knowledgeBase;
     private final TypeChecker typeChecker;
-    private final boolean legacyCdi10NewEnabled;
+    private final LegacyNewSupport legacyNewSupport;
     private final boolean allowNonPortableAsyncObserverEventParameterPriority;
 
     /**
@@ -97,19 +93,21 @@ public class CDI41InjectionValidator {
             ThreadLocal.withInitial(HashSet::new);
 
     public CDI41InjectionValidator(KnowledgeBase knowledgeBase) {
-        this(knowledgeBase, false, false);
+        this(knowledgeBase, new NoOpLegacyNewSupport(), false);
     }
 
-    public CDI41InjectionValidator(KnowledgeBase knowledgeBase, boolean legacyCdi10NewEnabled) {
-        this(knowledgeBase, legacyCdi10NewEnabled, false);
+    public CDI41InjectionValidator(KnowledgeBase knowledgeBase, LegacyNewSupport legacyNewSupport) {
+        this(knowledgeBase, legacyNewSupport, false);
     }
 
     public CDI41InjectionValidator(KnowledgeBase knowledgeBase,
-                                   boolean legacyCdi10NewEnabled,
+                                   LegacyNewSupport legacyNewSupport,
                                    boolean allowNonPortableAsyncObserverEventParameterPriority) {
         this.knowledgeBase = Objects.requireNonNull(knowledgeBase, "knowledgeBase cannot be null");
         this.typeChecker = new TypeChecker();
-        this.legacyCdi10NewEnabled = legacyCdi10NewEnabled;
+        this.legacyNewSupport = legacyNewSupport != null
+                ? legacyNewSupport
+                : new NoOpLegacyNewSupport();
         this.allowNonPortableAsyncObserverEventParameterPriority =
                 allowNonPortableAsyncObserverEventParameterPriority;
     }
@@ -131,6 +129,7 @@ public class CDI41InjectionValidator {
      * </ul>
      */
     public void validateAllInjectionPoints() {
+        legacyNewSupport.validateNewInjectionPoints();
 
         // Only validate injection points of valid beans
         Collection<Bean<?>> validBeans = knowledgeBase.getValidBeans().stream()
@@ -1560,7 +1559,7 @@ public class CDI41InjectionValidator {
             return false;
         }
 
-        AnnotatedMethod<?> annotatedMethod = AnnotatedMetadataHelper.findAnnotatedMethod(override, method);
+        AnnotatedMethod<?> annotatedMethod = findAnnotatedMethod(override, method);
         if (annotatedMethod == null) {
             return false;
         }
@@ -2103,10 +2102,10 @@ public class CDI41InjectionValidator {
      * @return set of matching beans (may include producer-backed beans)
      */
     private Set<Bean<?>> findMatchingBeans(Type requiredType, Set<Annotation> qualifiers) {
-        LegacyNewQualifierHelper.LegacyNewSelection legacyNewSelection =
-                LegacyNewQualifierHelper.extractSelection(requiredType, qualifiers.toArray(new Annotation[0]));
+        LegacyNewSupport.LegacyNewSelection legacyNewSelection =
+                legacyNewSupport.resolveSelection(requiredType, qualifiers.toArray(new Annotation[0]));
         if (legacyNewSelection != null) {
-            if (!legacyCdi10NewEnabled) {
+            if (!legacyNewSupport.isEnabled()) {
                 return Collections.emptySet();
             }
             return findLegacyNewBeans(requiredType, legacyNewSelection);
@@ -2145,7 +2144,7 @@ public class CDI41InjectionValidator {
     @SuppressWarnings({"rawtypes", "unchecked"})
     private Set<Bean<?>> findLegacyNewBeans(
             Type requiredType,
-            LegacyNewQualifierHelper.LegacyNewSelection selection) {
+            LegacyNewSupport.LegacyNewSelection selection) {
         Set<Bean<?>> matches = new HashSet<>();
         Class<?> targetClass = selection.getTargetClass();
 
@@ -2159,7 +2158,7 @@ public class CDI41InjectionValidator {
             if (!isTypeCompatible(requiredType, bean.getTypes())) {
                 continue;
             }
-            matches.add(new LegacyNewBeanAdapter(bean));
+            matches.add(legacyNewSupport.adaptLegacyNewBean((Bean) bean));
         }
         return applySpecializationFiltering(matches);
     }
@@ -2553,7 +2552,6 @@ public class CDI41InjectionValidator {
             return;
         }
 
-        boolean registerObserverInfos = knowledgeBase.getObserverMethodInfos().isEmpty();
         Set<Bean<?>> specializationFiltered = applySpecializationFiltering(new HashSet<>(validBeans));
 
         for (Bean<?> bean : specializationFiltered) {
@@ -2567,7 +2565,7 @@ public class CDI41InjectionValidator {
 
             // Scan all methods for @Observes and @ObservesAsync
             for (ObserverMethodCandidate candidate : collectObserverCandidateMethods(beanClass, annotatedTypeOverride)) {
-                validateObserverMethod(candidate, beanImpl, registerObserverInfos);
+                validateObserverMethod(candidate, beanImpl);
             }
         }
 
@@ -2581,8 +2579,7 @@ public class CDI41InjectionValidator {
      * @param declaringBean the bean that declares this method
      */
     private void validateObserverMethod(ObserverMethodCandidate candidate,
-                                        BeanImpl<?> declaringBean,
-                                        boolean registerObserverInfo) {
+                                        BeanImpl<?> declaringBean) {
         Method method = candidate.method;
         List<ObserverParameterMetadata> parameters =
                 resolveObserverParameterMetadata(method, candidate.annotatedMethod, declaringBean.getBeanClass());
@@ -2717,21 +2714,6 @@ public class CDI41InjectionValidator {
             }
         }
 
-        if (registerObserverInfo) {
-            // Create and register observer method info
-            ObserverMethodInfo observerMethodInfo = new ObserverMethodInfo(
-                method,
-                eventType,
-                qualifiers,
-                reception,
-                transactionPhase,
-                async,
-                declaringBean,
-                priority,
-                observedParameter.position
-            );
-            knowledgeBase.addObserverMethodInfo(observerMethodInfo);
-        }
     }
 
     private String formatObserverParameter(Parameter parameter, Method method, Bean<?> declaringBean) {
@@ -2774,8 +2756,7 @@ public class CDI41InjectionValidator {
         }
 
         // Handles standard qualifiers and repeatable qualifier containers.
-        qualifiers.addAll(QualifiersHelper
-                .extractQualifierAnnotations(annotations));
+        qualifiers.addAll(extractQualifierAnnotations(annotations));
 
         // Also honor dynamically registered qualifiers from extensions.
         for (Annotation annotation : annotations) {
@@ -2876,7 +2857,7 @@ public class CDI41InjectionValidator {
                     ? annotatedParameterAt(annotatedMethod, i)
                     : null;
             if (annotatedParameter == null && annotatedTypeOverride != null) {
-                annotatedParameter = AnnotatedMetadataHelper.findAnnotatedParameter(annotatedTypeOverride, parameter);
+                annotatedParameter = findAnnotatedParameter(annotatedTypeOverride, parameter);
             }
 
             Type baseType = annotatedParameter != null

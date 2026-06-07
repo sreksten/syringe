@@ -17,5 +17,18 @@
             <groupId>com.threeamigos</groupId>
             <artifactId>syringe-core</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.threeamigos</groupId>
+            <artifactId>syringe-extensions</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.threeamigos</groupId>
+            <artifactId>syringe-scopes</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 </project>

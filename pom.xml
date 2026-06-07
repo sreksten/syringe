@@ -11,15 +11,14 @@
 
     <modules>
         <module>syringe-core</module>
+        <module>syringe-proxy</module>
         <module>syringe-interceptors</module>
         <module>syringe-decorators</module>
         <module>syringe-scopes</module>
-        <module>syringe-events</module>
-        <module>syringe-discovery</module>
-        <module>syringe-producers</module>
         <module>syringe-extensions</module>
+        <module>syringe-events</module>
         <module>syringe-bce</module>
-        <module>syringe-legacy-new</module>
+        <module>syringe-legacy</module>
         <module>syringe-se</module>
         <module>syringe-full</module>
     </modules>
@@ -29,6 +28,7 @@
         <maven.compiler.target>1.8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <syringe.version>4.1.0</syringe.version>
+        <syringe.skip.prebuild.clean>false</syringe.skip.prebuild.clean>
     </properties>
 
     <dependencyManagement>
@@ -37,6 +37,11 @@
             <dependency>
                 <groupId>com.threeamigos</groupId>
                 <artifactId>syringe-core</artifactId>
+                <version>${syringe.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.threeamigos</groupId>
+                <artifactId>syringe-proxy</artifactId>
                 <version>${syringe.version}</version>
             </dependency>
             <dependency>
@@ -61,16 +66,6 @@
             </dependency>
             <dependency>
                 <groupId>com.threeamigos</groupId>
-                <artifactId>syringe-discovery</artifactId>
-                <version>${syringe.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.threeamigos</groupId>
-                <artifactId>syringe-producers</artifactId>
-                <version>${syringe.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.threeamigos</groupId>
                 <artifactId>syringe-extensions</artifactId>
                 <version>${syringe.version}</version>
             </dependency>
@@ -81,7 +76,7 @@
             </dependency>
             <dependency>
                 <groupId>com.threeamigos</groupId>
-                <artifactId>syringe-legacy-new</artifactId>
+                <artifactId>syringe-legacy</artifactId>
                 <version>${syringe.version}</version>
             </dependency>
             <dependency>
@@ -238,5 +233,24 @@
                 </plugin>
             </plugins>
         </pluginManagement>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-clean-plugin</artifactId>
+                <version>3.3.2</version>
+                <executions>
+                    <execution>
+                        <id>clean-before-build</id>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>clean</goal>
+                        </goals>
+                        <configuration>
+                            <skip>${syringe.skip.prebuild.clean}</skip>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
     </build>
 </project>

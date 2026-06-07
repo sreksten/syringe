@@ -1,11 +1,11 @@
 package com.threeamigos.common.util.implementations.injection.resolution;
 
 import com.threeamigos.common.util.implementations.injection.annotations.AnyLiteral;
-import com.threeamigos.common.util.implementations.injection.events.EventImpl;
-import com.threeamigos.common.util.implementations.injection.events.propagation.RegistryContextTokenProvider;
+import com.threeamigos.common.util.implementations.injection.events.NoOpObserverSupport;
+import com.threeamigos.common.util.implementations.injection.events.ObserverSupport;
 import com.threeamigos.common.util.implementations.injection.discovery.NonPortableBehaviourException;
-import com.threeamigos.common.util.implementations.injection.decorators.DecoratorAwareProxyGenerator;
-import com.threeamigos.common.util.implementations.injection.decorators.DecoratorResolver;
+import com.threeamigos.common.util.implementations.injection.decorators.DecoratorSupport;
+import com.threeamigos.common.util.implementations.injection.decorators.NoOpDecoratorSupport;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.DecoratorInfo;
 import com.threeamigos.common.util.implementations.injection.scopes.ContextManager;
 import com.threeamigos.common.util.implementations.injection.scopes.ScopeContext;
@@ -15,7 +15,8 @@ import com.threeamigos.common.util.implementations.injection.spi.SyntheticBean;
 import com.threeamigos.common.util.implementations.injection.spi.SyntheticProducerBeanImpl;
 import com.threeamigos.common.util.implementations.injection.spi.configured.ConfiguredInjectionPoint;
 import com.threeamigos.common.util.implementations.injection.types.RawTypeExtractor;
-import com.threeamigos.common.util.implementations.injection.annotations.legacy.LegacyNewQualifierHelper;
+import com.threeamigos.common.util.implementations.injection.annotations.legacy.LegacyNewSupport;
+import com.threeamigos.common.util.implementations.injection.annotations.legacy.NoOpLegacyNewSupport;
 import com.threeamigos.common.util.implementations.injection.util.tx.NoOpTransactionServices;
 import com.threeamigos.common.util.implementations.injection.util.tx.TransactionServices;
 import com.threeamigos.common.util.implementations.injection.util.LifecycleMethodHelper;
@@ -48,8 +49,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.*;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.*;
-import static com.threeamigos.common.util.implementations.injection.annotations.QualifiersHelper.*;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
 
 /**
  * Resolves dependencies by finding matching beans from the KnowledgeBase.
@@ -71,11 +71,10 @@ public class BeanResolver implements DependencyResolver {
     private final ContextManager contextManager;
     private final TypeChecker typeChecker;
     private TransactionServices transactionServices;
-    private EventImpl.ContextTokenProvider contextTokenProvider = new RegistryContextTokenProvider();
+    private volatile ObserverSupport observerSupport;
     private volatile BeanManagerImpl owningBeanManager;
-    private final DecoratorResolver decoratorResolver;
-    private final DecoratorAwareProxyGenerator decoratorAwareProxyGenerator;
-    private volatile boolean legacyCdi10NewEnabled;
+    private volatile DecoratorSupport decoratorSupport;
+    private volatile LegacyNewSupport legacyNewSupport;
 
     // ThreadLocal stack to pass nested injection point context during resolution
     private final ThreadLocal<Deque<InjectionPoint>> currentInjectionPoint =
@@ -90,8 +89,9 @@ public class BeanResolver implements DependencyResolver {
         this.contextManager = Objects.requireNonNull(contextManager, "contextManager cannot be null");
         this.typeChecker = new TypeChecker();
         this.transactionServices = transactionServices == null ? new NoOpTransactionServices() : transactionServices;
-        this.decoratorResolver = new DecoratorResolver(knowledgeBase);
-        this.decoratorAwareProxyGenerator = new DecoratorAwareProxyGenerator();
+        this.decoratorSupport = new NoOpDecoratorSupport();
+        this.legacyNewSupport = new NoOpLegacyNewSupport();
+        this.observerSupport = new NoOpObserverSupport();
     }
 
     public void setOwningBeanManager(BeanManagerImpl beanManager) {
@@ -102,8 +102,22 @@ public class BeanResolver implements DependencyResolver {
         return owningBeanManager;
     }
 
-    public void setLegacyCdi10NewEnabled(boolean enabled) {
-        this.legacyCdi10NewEnabled = enabled;
+    public void setLegacyNewSupport(LegacyNewSupport legacyNewSupport) {
+        this.legacyNewSupport = legacyNewSupport != null
+                ? legacyNewSupport
+                : new NoOpLegacyNewSupport();
+    }
+
+    public void setDecoratorSupport(DecoratorSupport decoratorSupport) {
+        this.decoratorSupport = decoratorSupport != null
+                ? decoratorSupport
+                : new NoOpDecoratorSupport();
+    }
+
+    public void setObserverSupport(ObserverSupport observerSupport) {
+        this.observerSupport = observerSupport != null
+                ? observerSupport
+                : new NoOpObserverSupport();
     }
 
     @Override
@@ -274,10 +288,10 @@ public class BeanResolver implements DependencyResolver {
      * Finds all beans matching the required type and qualifiers.
      */
     private Collection<Bean<?>> findMatchingBeans(Type requiredType, Annotation[] qualifiers) {
-        LegacyNewQualifierHelper.LegacyNewSelection legacyNewSelection =
-                LegacyNewQualifierHelper.extractSelection(requiredType, qualifiers);
+        LegacyNewSupport.LegacyNewSelection legacyNewSelection =
+                legacyNewSupport.resolveSelection(requiredType, qualifiers);
         if (legacyNewSelection != null) {
-            if (!legacyCdi10NewEnabled) {
+            if (!legacyNewSupport.isEnabled()) {
                 return Collections.emptyList();
             }
             return findLegacyNewBeans(requiredType, legacyNewSelection);
@@ -341,7 +355,7 @@ public class BeanResolver implements DependencyResolver {
     @SuppressWarnings({"unchecked", "rawtypes"})
     private Collection<Bean<?>> findLegacyNewBeans(
             Type requiredType,
-            LegacyNewQualifierHelper.LegacyNewSelection selection) {
+            LegacyNewSupport.LegacyNewSelection selection) {
         List<Bean<?>> matches = new ArrayList<>();
         Class<?> targetClass = selection.getTargetClass();
 
@@ -382,7 +396,7 @@ public class BeanResolver implements DependencyResolver {
                 continue;
             }
 
-            matches.add(new LegacyNewBeanAdapter(bean));
+            matches.add(legacyNewSupport.adaptLegacyNewBean((Bean) bean));
         }
 
         return applySpecializationFiltering(matches);
@@ -1181,19 +1195,22 @@ public class BeanResolver implements DependencyResolver {
             // For normal scopes, return a client proxy
             // The proxy will delegate to the contextual instance on each method call
             T proxy = contextManager.createClientProxy(bean);
-            return maybeDecorateResolvedInstance(bean, proxy, new CreationalContextImpl<>());
-        } else {
-            // For pseudo-scopes like @Dependent, return the actual instance
-            ScopeContext context = contextManager.getContext(scope);
-            CreationalContext<T> creationalContext = owningBeanManager != null
-                    ? owningBeanManager.createCreationalContext(bean)
-                    : new CreationalContextImpl<T>();
-            T instance = context.get(bean, creationalContext);
-            if (DEPENDENT.matches(scope) && owningBeanManager != null) {
-                owningBeanManager.registerOwnedTransientReference(bean, instance, creationalContext);
+            if (proxy != null) {
+                return maybeDecorateResolvedInstance(bean, proxy, new CreationalContextImpl<>());
             }
-            return maybeDecorateResolvedInstance(bean, instance, creationalContext);
         }
+
+        // For pseudo-scopes like @Dependent, or if proxy support is unavailable, return
+        // the actual contextual instance from the active scope.
+        ScopeContext context = contextManager.getContext(scope);
+        CreationalContext<T> creationalContext = owningBeanManager != null
+                ? owningBeanManager.createCreationalContext(bean)
+                : new CreationalContextImpl<T>();
+        T instance = context.get(bean, creationalContext);
+        if (DEPENDENT.matches(scope) && owningBeanManager != null) {
+            owningBeanManager.registerOwnedTransientReference(bean, instance, creationalContext);
+        }
+        return maybeDecorateResolvedInstance(bean, instance, creationalContext);
     }
 
     private <T> T maybeDecorateResolvedInstance(Bean<T> bean, T instance, CreationalContext<T> creationalContext) {
@@ -1211,7 +1228,7 @@ public class BeanResolver implements DependencyResolver {
             return instance;
         }
 
-        List<DecoratorInfo> decorators = decoratorResolver.resolve(bean.getTypes(), bean.getQualifiers());
+        List<DecoratorInfo> decorators = decoratorSupport.resolve(bean.getTypes(), bean.getQualifiers());
         if (decorators.isEmpty() && owningBeanManager != null) {
             decorators = resolveDecoratorsViaBeanManager(bean);
         }
@@ -1220,10 +1237,13 @@ public class BeanResolver implements DependencyResolver {
         }
 
         @SuppressWarnings("unchecked")
-        T decorated = (T) decoratorAwareProxyGenerator
-                .createDecoratorChain(instance, decorators, owningBeanManager, creationalContext)
-                .getOutermostInstance();
-        return decorated;
+        T decorated = (T) decoratorSupport.applyDecoratorChain(
+                instance,
+                decorators,
+                owningBeanManager,
+                creationalContext
+        );
+        return decorated != null ? decorated : instance;
     }
 
     private <T> List<DecoratorInfo> resolveDecoratorsViaBeanManager(Bean<T> bean) {
@@ -1347,16 +1367,19 @@ public class BeanResolver implements DependencyResolver {
         instanceBeanTypes.add(parameterizedProviderType(type));
         instanceBeanTypes.add(parameterizedIterableType(type));
 
-        List<DecoratorInfo> decorators = decoratorResolver.resolve(instanceBeanTypes, normalizedQualifiers);
+        List<DecoratorInfo> decorators = decoratorSupport.resolve(instanceBeanTypes, normalizedQualifiers);
         if (decorators.isEmpty()) {
             return baseInstance;
         }
 
         @SuppressWarnings("unchecked")
-        Instance<T> decoratedInstance = (Instance<T>) decoratorAwareProxyGenerator
-                .createDecoratorChain(baseInstance, decorators, owningBeanManager, new CreationalContextImpl<>())
-                .getOutermostInstance();
-        return decoratedInstance;
+        Instance<T> decoratedInstance = (Instance<T>) decoratorSupport.applyDecoratorChain(
+                baseInstance,
+                decorators,
+                owningBeanManager,
+                new CreationalContextImpl<>()
+        );
+        return decoratedInstance != null ? decoratedInstance : baseInstance;
     }
 
     private ParameterizedType parameterizedInstanceType(final Type argumentType) {
@@ -1497,8 +1520,7 @@ public class BeanResolver implements DependencyResolver {
         Set<Annotation> normalizedQualifiers = new HashSet<>(qualifiers);
         normalizedQualifiers.add(new AnyLiteral());
         InjectionPoint ownerInjectionPoint = getCurrentInjectionPoint();
-        Event<T> baseEvent = new EventImpl<>(eventType, normalizedQualifiers, knowledgeBase, this, contextManager,
-                transactionServices, contextTokenProvider, ownerInjectionPoint);
+        Event<T> baseEvent = observerSupport.createEvent(eventType, normalizedQualifiers, ownerInjectionPoint);
 
         if (owningBeanManager == null) {
             return baseEvent;
@@ -1509,16 +1531,19 @@ public class BeanResolver implements DependencyResolver {
         eventBeanTypes.add(Object.class);
         eventBeanTypes.add(parameterizedEventType(eventType));
 
-        List<DecoratorInfo> decorators = decoratorResolver.resolve(eventBeanTypes, normalizedQualifiers);
+        List<DecoratorInfo> decorators = decoratorSupport.resolve(eventBeanTypes, normalizedQualifiers);
         if (decorators.isEmpty()) {
             return baseEvent;
         }
 
         @SuppressWarnings("unchecked")
-        Event<T> decoratedEvent = (Event<T>) decoratorAwareProxyGenerator
-                .createDecoratorChain(baseEvent, decorators, owningBeanManager, new CreationalContextImpl<>())
-                .getOutermostInstance();
-        return decoratedEvent;
+        Event<T> decoratedEvent = (Event<T>) decoratorSupport.applyDecoratorChain(
+                baseEvent,
+                decorators,
+                owningBeanManager,
+                new CreationalContextImpl<>()
+        );
+        return decoratedEvent != null ? decoratedEvent : baseEvent;
     }
 
     private InjectionPoint createInjectionPointWrapper(InjectionPoint injectionPoint, Annotation[] qualifiers) {
@@ -1533,14 +1558,18 @@ public class BeanResolver implements DependencyResolver {
         injectionPointTypes.add(InjectionPoint.class);
         injectionPointTypes.add(Object.class);
 
-        List<DecoratorInfo> decorators = decoratorResolver.resolve(injectionPointTypes, normalizedQualifiers);
+        List<DecoratorInfo> decorators = decoratorSupport.resolve(injectionPointTypes, normalizedQualifiers);
         if (decorators.isEmpty()) {
             return injectionPoint;
         }
 
-        return (InjectionPoint) decoratorAwareProxyGenerator
-                .createDecoratorChain(injectionPoint, decorators, owningBeanManager, new CreationalContextImpl<>())
-                .getOutermostInstance();
+        Object decorated = decoratorSupport.applyDecoratorChain(
+                injectionPoint,
+                decorators,
+                owningBeanManager,
+                new CreationalContextImpl<>()
+        );
+        return decorated instanceof InjectionPoint ? (InjectionPoint) decorated : injectionPoint;
     }
 
     private ParameterizedType parameterizedEventType(final Type eventType) {
@@ -1601,10 +1630,6 @@ public class BeanResolver implements DependencyResolver {
 
     void setTransactionServices(TransactionServices transactionServices) {
         this.transactionServices = transactionServices == null ? new NoOpTransactionServices() : transactionServices;
-    }
-
-    void setContextTokenProvider(EventImpl.ContextTokenProvider provider) {
-        this.contextTokenProvider = provider == null ? new RegistryContextTokenProvider() : provider;
     }
 
     /**
@@ -1671,7 +1696,9 @@ public class BeanResolver implements DependencyResolver {
     public void clearRuntimeState() {
         currentInjectionPoint.remove();
         owningBeanManager = null;
-        decoratorAwareProxyGenerator.clearCache();
+        if (decoratorSupport != null) {
+            decoratorSupport.clear();
+        }
     }
 
     /**

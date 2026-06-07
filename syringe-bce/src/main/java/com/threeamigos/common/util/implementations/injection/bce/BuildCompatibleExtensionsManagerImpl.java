@@ -16,7 +16,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationExtractors.getSkipIfPortableExtensionPresentAnnotation;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.getSkipIfPortableExtensionPresentAnnotation;
 
 /**
  *

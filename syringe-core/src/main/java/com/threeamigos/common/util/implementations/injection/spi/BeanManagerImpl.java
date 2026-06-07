@@ -3,23 +3,26 @@ package com.threeamigos.common.util.implementations.injection.spi;
 import com.threeamigos.common.util.implementations.injection.annotations.*;
 
 import com.threeamigos.common.util.implementations.injection.scopes.InjectionPointImpl;
-import com.threeamigos.common.util.implementations.injection.events.EventImpl;
-import com.threeamigos.common.util.implementations.injection.interceptors.InterceptionFactoryImpl;
-import com.threeamigos.common.util.implementations.injection.interceptors.InterceptorAwareProxyGenerator;
-import com.threeamigos.common.util.implementations.injection.decorators.DecoratorAwareProxyGenerator;
-import com.threeamigos.common.util.implementations.injection.decorators.DecoratorResolver;
+import com.threeamigos.common.util.implementations.injection.events.ObserverSupport;
+import com.threeamigos.common.util.implementations.injection.events.NoOpObserverSupport;
+import com.threeamigos.common.util.implementations.injection.interceptors.InterceptorSupport;
+import com.threeamigos.common.util.implementations.injection.interceptors.NoOpInterceptorSupport;
+import com.threeamigos.common.util.implementations.injection.decorators.DecoratorSupport;
+import com.threeamigos.common.util.implementations.injection.decorators.NoOpDecoratorSupport;
+import com.threeamigos.common.util.implementations.injection.annotations.legacy.LegacyNewSupport;
+import com.threeamigos.common.util.implementations.injection.annotations.legacy.NoOpLegacyNewSupport;
 import com.threeamigos.common.util.implementations.injection.discovery.NonPortableBehaviourException;
 import com.threeamigos.common.util.implementations.injection.resolution.*;
-import com.threeamigos.common.util.implementations.injection.resolution.LegacyNewBeanAdapter;
 import com.threeamigos.common.util.implementations.injection.scopes.ContextManager;
 import com.threeamigos.common.util.implementations.injection.scopes.CustomContextAdapter;
+import com.threeamigos.common.util.implementations.injection.scopes.NoOpScopeSupport;
+import com.threeamigos.common.util.implementations.injection.scopes.ScopeSupport;
 import com.threeamigos.common.util.implementations.injection.el.ELSupport;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.DecoratorInfo;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.InterceptorInfo;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.KnowledgeBase;
-import com.threeamigos.common.util.implementations.injection.events.ObserverMethodInfo;
+import com.threeamigos.common.util.implementations.injection.events.ObserverMethodMetadata;
 import com.threeamigos.common.util.implementations.injection.spi.spievents.SimpleAnnotatedType;
-import com.threeamigos.common.util.implementations.injection.annotations.legacy.LegacyNewQualifierHelper;
 import com.threeamigos.common.util.implementations.injection.util.LifecycleMethodHelper;
 import com.threeamigos.common.util.implementations.injection.types.RawTypeExtractor;
 import com.threeamigos.common.util.implementations.injection.types.TypeClosureHelper;
@@ -58,11 +61,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.*;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.*;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationExtractors.*;
-import static com.threeamigos.common.util.implementations.injection.annotations.QualifiersHelper.extractQualifiers;
-import static com.threeamigos.common.util.implementations.injection.annotations.QualifiersHelper.normalizeBeanQualifiers;
-import static com.threeamigos.common.util.implementations.injection.annotations.QualifiersHelper.qualifiersMatch;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
 
 /**
  * Implementation of the CDI 4.1 BeanManager interface.
@@ -113,18 +112,20 @@ public class BeanManagerImpl implements BeanManager, Serializable {
     private final BeanResolver beanResolver;
     private final ContextManager contextManager;
     private final TypeChecker typeChecker;
-    private final DecoratorResolver decoratorResolver;
-    private final DecoratorAwareProxyGenerator decoratorAwareProxyGenerator;
     private final List<Extension> registeredExtensions;
     private final String beanManagerId;
     private final ClassLoader registrationClassLoader;
-    private volatile boolean legacyCdi10NewEnabled;
     private volatile boolean afterBeanDiscoveryFired;
     private volatile boolean afterDeploymentValidationFired;
     private transient volatile ELResolver beanManagerELResolver;
     private final Map<Class<? extends Annotation>, List<Context>> bceContextInstances =
             new ConcurrentHashMap<>();
     private volatile boolean requireActiveContextForGetContext;
+    private volatile ObserverSupport observerSupport;
+    private volatile InterceptorSupport interceptorSupport;
+    private volatile DecoratorSupport decoratorSupport;
+    private volatile LegacyNewSupport legacyNewSupport;
+    private volatile ScopeSupport scopeSupport;
 
     /**
      * Creates a new BeanManager implementation.
@@ -139,11 +140,16 @@ public class BeanManagerImpl implements BeanManager, Serializable {
         this.beanManagerId = UUID.randomUUID().toString();
         this.beanResolver.setOwningBeanManager(this);
         this.typeChecker = new TypeChecker();
-        this.decoratorResolver = new DecoratorResolver(knowledgeBase);
-        this.decoratorAwareProxyGenerator = new DecoratorAwareProxyGenerator();
         this.registeredExtensions = new ArrayList<>();
-        this.legacyCdi10NewEnabled = false;
         this.requireActiveContextForGetContext = false;
+        this.observerSupport = new NoOpObserverSupport();
+        this.interceptorSupport = new NoOpInterceptorSupport();
+        this.decoratorSupport = new NoOpDecoratorSupport();
+        this.legacyNewSupport = new NoOpLegacyNewSupport();
+        this.scopeSupport = new NoOpScopeSupport();
+        this.beanResolver.setObserverSupport(this.observerSupport);
+        this.beanResolver.setDecoratorSupport(this.decoratorSupport);
+        this.beanResolver.setLegacyNewSupport(this.legacyNewSupport);
 
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         if (classLoader == null) {
@@ -162,8 +168,17 @@ public class BeanManagerImpl implements BeanManager, Serializable {
     }
 
     public void setLegacyCdi10NewEnabled(boolean enabled) {
-        this.legacyCdi10NewEnabled = enabled;
-        this.beanResolver.setLegacyCdi10NewEnabled(enabled);
+        if (enabled) {
+            legacyNewSupport.enable();
+        }
+    }
+
+    /** Wired by Syringe after ServiceLoader discovery. */
+    public void setLegacyNewSupport(LegacyNewSupport legacyNewSupport) {
+        this.legacyNewSupport = legacyNewSupport != null
+                ? legacyNewSupport
+                : new NoOpLegacyNewSupport();
+        this.beanResolver.setLegacyNewSupport(this.legacyNewSupport);
     }
 
     public void registerExtensions(Collection<Extension> extensions) {
@@ -188,6 +203,44 @@ public class BeanManagerImpl implements BeanManager, Serializable {
         this.requireActiveContextForGetContext = requireActiveContextForGetContext;
     }
 
+    /** Wired by Syringe after ServiceLoader discovery. */
+    public void setObserverSupport(ObserverSupport observerSupport) {
+        this.observerSupport = observerSupport != null
+                ? observerSupport
+                : new NoOpObserverSupport();
+        this.beanResolver.setObserverSupport(this.observerSupport);
+    }
+
+    /** Wired by Syringe after ServiceLoader discovery. */
+    public void setInterceptorSupport(InterceptorSupport interceptorSupport) {
+        this.interceptorSupport = interceptorSupport != null
+                ? interceptorSupport
+                : new NoOpInterceptorSupport();
+    }
+
+    /** Wired by Syringe after ServiceLoader discovery. */
+    public void setDecoratorSupport(DecoratorSupport decoratorSupport) {
+        this.decoratorSupport = decoratorSupport != null
+                ? decoratorSupport
+                : new NoOpDecoratorSupport();
+        this.beanResolver.setDecoratorSupport(this.decoratorSupport);
+    }
+
+    public DecoratorSupport getDecoratorSupport() {
+        return decoratorSupport;
+    }
+
+    /** Wired by Syringe after ServiceLoader discovery. */
+    public void setScopeSupport(ScopeSupport scopeSupport) {
+        this.scopeSupport = scopeSupport != null
+                ? scopeSupport
+                : new NoOpScopeSupport();
+    }
+
+    public ScopeSupport getScopeSupport() {
+        return scopeSupport;
+    }
+
     /**
      * Clears runtime state retained by the BeanManager.
      * Intended for container shutdown.
@@ -196,7 +249,9 @@ public class BeanManagerImpl implements BeanManager, Serializable {
         registeredExtensions.clear();
         bceContextInstances.clear();
         beanResolver.clearRuntimeState();
-        decoratorAwareProxyGenerator.clearCache();
+        if (decoratorSupport != null) {
+            decoratorSupport.clear();
+        }
         clearTransientReferencesForOwner(beanManagerId);
     }
 
@@ -304,7 +359,10 @@ public class BeanManagerImpl implements BeanManager, Serializable {
 
         // For normal scopes, return a client proxy
         if (contextManager.isNormalScope(bean.getScope())) {
-            return contextManager.createClientProxy(bean);
+            Object proxy = contextManager.createClientProxy(bean);
+            if (proxy != null) {
+                return proxy;
+            }
         }
 
         if (DEPENDENT.matches(bean.getScope()) && ctx instanceof CreationalContextImpl) {
@@ -353,15 +411,17 @@ public class BeanManagerImpl implements BeanManager, Serializable {
             return instance;
         }
 
-        List<DecoratorInfo> decorators = decoratorResolver.resolve(bean.getTypes(), bean.getQualifiers());
+        DecoratorSupport localDecoratorSupport = decoratorSupport != null
+                ? decoratorSupport
+                : new NoOpDecoratorSupport();
+        List<DecoratorInfo> decorators = localDecoratorSupport.resolve(bean.getTypes(), bean.getQualifiers());
         if (decorators.isEmpty()) {
             return instance;
         }
 
         CreationalContext<?> creationalContext = ctx != null ? ctx : createCreationalContext(null);
-        return decoratorAwareProxyGenerator
-                .createDecoratorChain(instance, decorators, this, creationalContext)
-                .getOutermostInstance();
+        Object wrapped = localDecoratorSupport.applyDecoratorChain(instance, decorators, this, creationalContext);
+        return wrapped != null ? wrapped : instance;
     }
 
     private boolean isBeanTypeInBeanTypes(Type requestedType, Set<Type> beanTypes) {
@@ -562,10 +622,10 @@ public class BeanManagerImpl implements BeanManager, Serializable {
             return builtInLookupBeans;
         }
 
-        LegacyNewQualifierHelper.LegacyNewSelection legacyNewSelection =
-                LegacyNewQualifierHelper.extractSelection(beanType, qualifiers);
+        LegacyNewSupport.LegacyNewSelection legacyNewSelection =
+                legacyNewSupport.resolveSelection(beanType, qualifiers);
         if (legacyNewSelection != null) {
-            if (!legacyCdi10NewEnabled) {
+            if (!legacyNewSupport.isEnabled()) {
                 return Collections.emptySet();
             }
             return resolveLegacyNewBeans(beanType, legacyNewSelection);
@@ -692,7 +752,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
     @SuppressWarnings({"rawtypes", "unchecked"})
     private Set<Bean<?>> resolveLegacyNewBeans(
             Type beanType,
-            LegacyNewQualifierHelper.LegacyNewSelection selection) {
+            LegacyNewSupport.LegacyNewSelection selection) {
         Set<Bean<?>> matchingBeans = new HashSet<>();
         Class<?> targetClass = selection.getTargetClass();
 
@@ -722,7 +782,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
             if (isNotBeanAccessibleFromCurrentInjectionPoint(bean)) {
                 continue;
             }
-            matchingBeans.add(new LegacyNewBeanAdapter(bean));
+            matchingBeans.add(legacyNewSupport.adaptLegacyNewBean((Bean) bean));
         }
 
         return applySpecializationFiltering(matchingBeans);
@@ -1278,9 +1338,9 @@ public class BeanManagerImpl implements BeanManager, Serializable {
         Set<Annotation> eventQualifiers = new HashSet<>(Arrays.asList(qualifiers));
         Set<Annotation> normalizedEventQualifiers = normalizeEventQualifiers(eventQualifiers);
 
-        List<ObserverMethodInfo> matchingObserverInfos = new ArrayList<>();
+        List<ObserverMethodMetadata> matchingObserverInfos = new ArrayList<>();
 
-        for (ObserverMethodInfo observerInfo : knowledgeBase.getObserverMethodInfos()) {
+        for (ObserverMethodMetadata observerInfo : knowledgeBase.getObserverMethodInfos()) {
             // Check type compatibility
             if (!typeChecker.isEventTypeAssignable(observerInfo.getEventType(), eventType)) {
                 continue;
@@ -1309,9 +1369,9 @@ public class BeanManagerImpl implements BeanManager, Serializable {
             }
         }
 
-        List<ObserverMethodInfo> dedupedObserverInfos = new ArrayList<>();
+        List<ObserverMethodMetadata> dedupedObserverInfos = new ArrayList<>();
         Set<String> seenObserverIdentities = new HashSet<>();
-        for (ObserverMethodInfo observerInfo : matchingObserverInfos) {
+        for (ObserverMethodMetadata observerInfo : matchingObserverInfos) {
             String identityKey = observerMethodIdentityKey(observerInfo);
             if (seenObserverIdentities.add(identityKey)) {
                 dedupedObserverInfos.add(observerInfo);
@@ -1319,7 +1379,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
         }
 
         dedupedObserverInfos.sort(
-                Comparator.comparingInt(ObserverMethodInfo::getPriority)
+                Comparator.comparingInt(ObserverMethodMetadata::getPriority)
                         .thenComparing(info -> {
                             Method observerMethod = info.getObserverMethod();
                             if (observerMethod != null) {
@@ -1334,7 +1394,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
         );
 
         Set<ObserverMethod<? super T>> observerMethods = new LinkedHashSet<>();
-        for (ObserverMethodInfo observerInfo : dedupedObserverInfos) {
+        for (ObserverMethodMetadata observerInfo : dedupedObserverInfos) {
             observerMethods.add(createObserverMethod(observerInfo));
         }
         return observerMethods;
@@ -1647,8 +1707,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
             return false;
         }
         // Check both annotation-based and programmatically registered interceptor bindings
-        return AnnotationPredicates
-                   .hasActivateRequestContextAnnotation(annotationType) ||
+        return hasActivateRequestContextAnnotation(annotationType) ||
                hasInterceptorBindingAnnotation(annotationType) ||
                knowledgeBase.isRegisteredInterceptorBinding(annotationType);
     }
@@ -1883,18 +1942,11 @@ public class BeanManagerImpl implements BeanManager, Serializable {
             }
         }
 
-        // Fallback to raw built-in EventImpl if resolver integration is unavailable.
-        Set<Annotation> qualifiers = new HashSet<>();
-        qualifiers.add(jakarta.enterprise.inject.Default.Literal.INSTANCE);
-        qualifiers.add(new AnyLiteral());
-        return new EventImpl<>(
-                Object.class,
-                qualifiers,
-                knowledgeBase,
-                beanResolver,
-                contextManager,
-                beanResolver.getTransactionServices()
-        );
+        // Fallback to ObserverSupport when resolver integration is unavailable.
+        if (observerSupport != null) {
+            return observerSupport.getRootEvent();
+        }
+        throw new IllegalStateException("ObserverSupport is not initialized; cannot create Event");
     }
 
     /**
@@ -3329,11 +3381,10 @@ public class BeanManagerImpl implements BeanManager, Serializable {
             throw new NonPortableBehaviourException("Non-portable behavior: InterceptionFactory requires a Java class type, got " + clazz.getName());
         }
 
-        // Create InterceptorAwareProxyGenerator for creating proxies
-        InterceptorAwareProxyGenerator proxyGenerator = new InterceptorAwareProxyGenerator();
-
-        // Return InterceptionFactory implementation
-        return new InterceptionFactoryImpl<>(clazz, ctx, this, proxyGenerator);
+        InterceptorSupport localInterceptorSupport = interceptorSupport != null
+                ? interceptorSupport
+                : new NoOpInterceptorSupport();
+        return localInterceptorSupport.createInterceptionFactory(ctx, clazz, this);
     }
 
     // ==================== Helper Methods ====================
@@ -3629,22 +3680,64 @@ public class BeanManagerImpl implements BeanManager, Serializable {
     /**
      * Creates an ObserverMethod wrapper from ObserverMethodInfo.
      */
-    private ObserverMethodInfo createSyntheticObserverInfo(ObserverMethod<?> syntheticObserver) {
-        return new ObserverMethodInfo(
-                syntheticObserver.getObservedType(),
-                syntheticObserver.getObservedQualifiers() == null
-                        ? Collections.emptySet()
-                        : syntheticObserver.getObservedQualifiers(),
-                syntheticObserver.getReception(),
-                syntheticObserver.getTransactionPhase(),
-                syntheticObserver.getPriority(),
-                syntheticObserver.isAsync(),
-                null,
-                syntheticObserver
-        );
+    private ObserverMethodMetadata createSyntheticObserverInfo(final ObserverMethod<?> syntheticObserver) {
+        final Set<Annotation> observedQualifiers = syntheticObserver.getObservedQualifiers() == null
+                ? Collections.<Annotation>emptySet()
+                : syntheticObserver.getObservedQualifiers();
+        return new ObserverMethodMetadata() {
+            @Override
+            public Method getObserverMethod() {
+                return null;
+            }
+
+            @Override
+            public Type getEventType() {
+                return syntheticObserver.getObservedType();
+            }
+
+            @Override
+            public Set<Annotation> getQualifiers() {
+                return observedQualifiers;
+            }
+
+            @Override
+            public jakarta.enterprise.event.Reception getReception() {
+                return syntheticObserver.getReception();
+            }
+
+            @Override
+            public jakarta.enterprise.event.TransactionPhase getTransactionPhase() {
+                return syntheticObserver.getTransactionPhase();
+            }
+
+            @Override
+            public boolean isAsync() {
+                return syntheticObserver.isAsync();
+            }
+
+            @Override
+            public Bean<?> getDeclaringBean() {
+                return null;
+            }
+
+            @Override
+            public int getPriority() {
+                return syntheticObserver.getPriority();
+            }
+
+            @Override
+            public int getObservedParameterPosition() {
+                return -1;
+            }
+
+            @Override
+            public ObserverMethod<?> getSyntheticObserver() {
+                return syntheticObserver;
+            }
+        };
     }
 
-    private <T> ObserverMethod<T> createObserverMethod(ObserverMethodInfo info) {
+    private <T> ObserverMethod<T> createObserverMethod(ObserverMethodMetadata info) {
         if (info.isSynthetic() && info.getSyntheticObserver() != null) {
             @SuppressWarnings("unchecked")
             ObserverMethod<T> synthetic = (ObserverMethod<T>) info.getSyntheticObserver();
@@ -3694,16 +3787,20 @@ public class BeanManagerImpl implements BeanManager, Serializable {
 
             @Override
             public void notify(T event) {
+                Method observerMethod = info.getObserverMethod();
+                if (observerMethod == null) {
+                    throw new RuntimeException("Observer method metadata does not contain a reflective Method");
+                }
                 // Resolve the bean instance and jakarta.enterprise.invoke the observer method
                 try {
                     Class<?> declaringClass = info.getDeclaringBean() != null ?
                         info.getDeclaringBean().getBeanClass() :
-                        info.getObserverMethod().getDeclaringClass();
+                        observerMethod.getDeclaringClass();
                     Object instance = beanResolver.resolveDeclaringBeanInstance(declaringClass);
-                    if (!info.getObserverMethod().isAccessible()) {
-                        info.getObserverMethod().setAccessible(true);
+                    if (!observerMethod.isAccessible()) {
+                        observerMethod.setAccessible(true);
                     }
-                    info.getObserverMethod().invoke(instance, event);
+                    observerMethod.invoke(instance, event);
                 } catch (Exception e) {
                     throw new RuntimeException("Failed to jakarta.enterprise.invoke observer method", e);
                 }
@@ -3732,7 +3829,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
         };
     }
 
-    private static String observerMethodIdentityKey(ObserverMethodInfo info) {
+    private static String observerMethodIdentityKey(ObserverMethodMetadata info) {
         if (info == null) {
             return "";
         }
@@ -3769,7 +3866,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
     }
 
     private static String observerMethodIdentityKey(ObserverMethod<?> observerMethod) {
-        ObserverMethodInfo info = extractObserverMethodInfo(observerMethod);
+        ObserverMethodMetadata info = extractObserverMethodMetadata(observerMethod);
         if (info != null) {
             return observerMethodIdentityKey(info);
         }
@@ -3791,7 +3888,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
         return sb.toString();
     }
 
-    private static ObserverMethodInfo extractObserverMethodInfo(ObserverMethod<?> observerMethod) {
+    private static ObserverMethodMetadata extractObserverMethodMetadata(ObserverMethod<?> observerMethod) {
         if (observerMethod == null) {
             return null;
         }
@@ -3800,14 +3897,14 @@ public class BeanManagerImpl implements BeanManager, Serializable {
         while (current != null && !Object.class.equals(current)) {
             Field[] fields = current.getDeclaredFields();
             for (Field field : fields) {
-                if (!ObserverMethodInfo.class.isAssignableFrom(field.getType())) {
+                if (!ObserverMethodMetadata.class.isAssignableFrom(field.getType())) {
                     continue;
                 }
                 try {
                     field.setAccessible(true);
                     Object value = field.get(observerMethod);
-                    if (value instanceof ObserverMethodInfo) {
-                        return (ObserverMethodInfo) value;
+                    if (value instanceof ObserverMethodMetadata) {
+                        return (ObserverMethodMetadata) value;
                     }
                 } catch (IllegalAccessException ignored) {
                     // try next field/superclass
@@ -4466,13 +4563,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
 
         @Override
         public Event<?> create(CreationalContext<Event<?>> context) {
-            return new EventImpl<>(
-                    eventPayloadType,
-                    new LinkedHashSet<>(qualifiers),
-                    beanManager.knowledgeBase,
-                    beanManager.beanResolver,
-                    beanManager.contextManager,
-                    beanManager.beanResolver.getTransactionServices());
+            return beanManager.observerSupport.createEvent(eventPayloadType, new LinkedHashSet<>(qualifiers));
         }
 
         @Override
@@ -4866,8 +4957,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
 
     private Set<Annotation> extractBeanQualifiers(Annotated annotated) {
         Set<Annotation> qualifiers = new LinkedHashSet<>(
-                QualifiersHelper
-                        .extractQualifierAnnotations(annotated.getAnnotations().toArray(new Annotation[0])));
+                extractQualifierAnnotations(annotated.getAnnotations().toArray(new Annotation[0])));
         for (Class<? extends Annotation> stereotype : extractStereotypesFromAnnotated(annotated)) {
             qualifiers.addAll(extractQualifiersFromStereotype(stereotype, new HashSet<>()));
         }

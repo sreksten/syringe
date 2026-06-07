@@ -5,9 +5,9 @@ import com.threeamigos.common.util.implementations.injection.beansxml.BeansXml;
 import java.lang.annotation.Annotation;
 import java.util.Collection;
 
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.hasAlternativeAnnotation;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.hasStereotypeAnnotation;
-import static com.threeamigos.common.util.implementations.injection.annotations.StereotypesHelper.declaresAlternative;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasAlternativeAnnotation;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasStereotypeAnnotation;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.declaresAlternative;
 
 /**
  * Helper for alternative-related annotation decisions.

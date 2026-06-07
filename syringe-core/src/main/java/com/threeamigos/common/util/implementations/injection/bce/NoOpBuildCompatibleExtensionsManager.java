@@ -3,6 +3,7 @@ package com.threeamigos.common.util.implementations.injection.bce;
 import com.threeamigos.common.util.implementations.injection.NotEnabledFeatureException;
 import com.threeamigos.common.util.implementations.injection.extensions.ExtensionsManager;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.KnowledgeBase;
+import com.threeamigos.common.util.implementations.injection.modules.ModulesEnum;
 import com.threeamigos.common.util.interfaces.messagehandler.MessageHandler;
 import jakarta.enterprise.inject.spi.BeanManager;
 
@@ -41,7 +42,8 @@ public class NoOpBuildCompatibleExtensionsManager implements BuildCompatibleExte
     @Override
     public void addBuildCompatibleExtension(String extensionClassName) {
         throw new NotEnabledFeatureException(
-                "Build-compatible extension support is not available. Add syringe-bce to your classpath.");
+                "API call found at Syringe.addBuildCompatibleExtension(String) but build-compatible extension support is not available.",
+                ModulesEnum.BCE);
     }
 
     @Override

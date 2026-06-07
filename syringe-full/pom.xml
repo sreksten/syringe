@@ -10,53 +10,13 @@
         <version>4.1.0</version>
     </parent>
 
-    <artifactId>syringe-full</artifactId>
+    <artifactId>syringe</artifactId>
 
     <dependencies>
-        <!-- All syringe modules — represents a full CDI 4.1-compliant container -->
+        <!-- Always present -->
         <dependency>
             <groupId>com.threeamigos</groupId>
             <artifactId>syringe-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.threeamigos</groupId>
-            <artifactId>syringe-interceptors</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.threeamigos</groupId>
-            <artifactId>syringe-decorators</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.threeamigos</groupId>
-            <artifactId>syringe-scopes</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.threeamigos</groupId>
-            <artifactId>syringe-events</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.threeamigos</groupId>
-            <artifactId>syringe-discovery</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.threeamigos</groupId>
-            <artifactId>syringe-producers</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.threeamigos</groupId>
-            <artifactId>syringe-extensions</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.threeamigos</groupId>
-            <artifactId>syringe-bce</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.threeamigos</groupId>
-            <artifactId>syringe-legacy-new</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.threeamigos</groupId>
-            <artifactId>syringe-se</artifactId>
         </dependency>
         <!-- JAXB runtime needed for beans.xml parsing in tests -->
         <dependency>
@@ -108,6 +68,143 @@
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.5.3</version>
+                <executions>
+                    <execution>
+                        <id>shade-full-runtime</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <createDependencyReducedPom>true</createDependencyReducedPom>
+                            <shadedArtifactAttached>false</shadedArtifactAttached>
+                            <artifactSet>
+                                <includes>
+                                    <include>com.threeamigos:syringe-core</include>
+                                    <include>com.threeamigos:syringe-proxy</include>
+                                    <include>com.threeamigos:syringe-interceptors</include>
+                                    <include>com.threeamigos:syringe-decorators</include>
+                                    <include>com.threeamigos:syringe-scopes</include>
+                                    <include>com.threeamigos:syringe-events</include>
+                                    <include>com.threeamigos:syringe-extensions</include>
+                                    <include>com.threeamigos:syringe-bce</include>
+                                    <include>com.threeamigos:syringe-legacy-new</include>
+                                    <include>com.threeamigos:syringe-se</include>
+                                </includes>
+                            </artifactSet>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <id>copy-shaded-jar-to-root</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <copy
+                                        file="${project.build.directory}/${project.build.finalName}.jar"
+                                        tofile="${project.basedir}/../syringe-${project.version}.jar"/>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!-- Default: full CDI runtime with all optional modules available -->
+        <profile>
+            <id>full-runtime</id>
+            <activation>
+                <property>
+                    <name>!syringe.core.only</name>
+                </property>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>com.threeamigos</groupId>
+                    <artifactId>syringe-proxy</artifactId>
+                </dependency>
+                <dependency>
+                    <groupId>com.threeamigos</groupId>
+                    <artifactId>syringe-interceptors</artifactId>
+                </dependency>
+                <dependency>
+                    <groupId>com.threeamigos</groupId>
+                    <artifactId>syringe-decorators</artifactId>
+                </dependency>
+                <dependency>
+                    <groupId>com.threeamigos</groupId>
+                    <artifactId>syringe-scopes</artifactId>
+                </dependency>
+                <dependency>
+                    <groupId>com.threeamigos</groupId>
+                    <artifactId>syringe-events</artifactId>
+                </dependency>
+                <dependency>
+                    <groupId>com.threeamigos</groupId>
+                    <artifactId>syringe-extensions</artifactId>
+                </dependency>
+                <dependency>
+                    <groupId>com.threeamigos</groupId>
+                    <artifactId>syringe-bce</artifactId>
+                </dependency>
+                <dependency>
+                    <groupId>com.threeamigos</groupId>
+                    <artifactId>syringe-legacy</artifactId>
+                </dependency>
+                <dependency>
+                    <groupId>com.threeamigos</groupId>
+                    <artifactId>syringe-se</artifactId>
+                </dependency>
+            </dependencies>
+        </profile>
+
+        <!-- Core-only gate: compile and run only dedicated standalone tests -->
+        <profile>
+            <id>core-only-tests</id>
+            <activation>
+                <property>
+                    <name>syringe.core.only</name>
+                </property>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <version>3.11.0</version>
+                        <configuration>
+                            <testIncludes>
+                                <testInclude>**/coreonly/**/*.java</testInclude>
+                            </testIncludes>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/*CoreOnly*Test.java</include>
+                            </includes>
+                            <failIfNoTests>true</failIfNoTests>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

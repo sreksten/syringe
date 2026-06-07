@@ -1,9 +1,8 @@
 package com.threeamigos.common.util.implementations.injection.builtinbeans;
 
-import com.threeamigos.common.util.implementations.injection.decorators.DecoratorAwareProxyGenerator;
-import com.threeamigos.common.util.implementations.injection.decorators.DecoratorChain;
+import com.threeamigos.common.util.implementations.injection.decorators.DecoratorSupport;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.DecoratorInfo;
-import com.threeamigos.common.util.implementations.injection.scopes.ConversationImpl;
+import com.threeamigos.common.util.implementations.injection.scopes.ScopeSupport;
 import com.threeamigos.common.util.implementations.injection.spi.BeanManagerImpl;
 import jakarta.enterprise.context.Conversation;
 import jakarta.enterprise.context.RequestScoped;
@@ -12,7 +11,6 @@ import jakarta.enterprise.inject.Any;
 import jakarta.enterprise.inject.Default;
 import jakarta.enterprise.inject.spi.Bean;
 import jakarta.enterprise.inject.spi.CDI;
-import jakarta.enterprise.inject.spi.Decorator;
 import jakarta.enterprise.inject.spi.InjectionPoint;
 
 import java.lang.annotation.Annotation;
@@ -56,19 +54,20 @@ import java.util.*;
  * </ul>
  *
  * <p><b>Implementation Note:</b> Although the bean is @ApplicationScoped (singleton),
- * the ConversationImpl uses ThreadLocal to maintain the per-request conversation state,
+ * the concrete conversation implementation uses ThreadLocal per-request state internally,
  * making it effectively request-scoped in behavior while being a singleton in the container.
  *
  * @author Stefano Reksten
  * @see Conversation
- * @see ConversationImpl
  */
 public class ConversationBean implements Bean<Conversation> {
 
     private final BeanManagerImpl beanManager;
+    private final ScopeSupport scopeSupport;
 
-    public ConversationBean(BeanManagerImpl beanManager) {
+    public ConversationBean(BeanManagerImpl beanManager, ScopeSupport scopeSupport) {
         this.beanManager = beanManager;
+        this.scopeSupport = scopeSupport;
     }
 
     @Override
@@ -83,35 +82,30 @@ public class ConversationBean implements Bean<Conversation> {
 
     @Override
     public Conversation create(CreationalContext<Conversation> context) {
-        Conversation conversation = new ConversationImpl();
+        Conversation conversation = createConversationInstance();
         try {
             jakarta.enterprise.inject.spi.BeanManager beanManager = resolveBeanManager();
-            if (beanManager == null) {
-                return conversation;
-            }
-            Set<Type> types = new HashSet<>();
-            types.add(Conversation.class);
-            types.add(Object.class);
-            List<Decorator<?>> decorators = beanManager.resolveDecorators(types, Default.Literal.INSTANCE);
-            if (decorators.isEmpty() || !(beanManager instanceof BeanManagerImpl)) {
+            if (!(beanManager instanceof BeanManagerImpl)) {
                 return conversation;
             }
             BeanManagerImpl beanManagerImpl = (BeanManagerImpl) beanManager;
-            List<DecoratorInfo> infos = new ArrayList<>();
-            for (Decorator<?> decorator : decorators) {
-                DecoratorInfo info = findDecoratorInfoByClass(
-                        beanManagerImpl.getKnowledgeBase().getDecoratorInfos(),
-                        decorator.getBeanClass());
-                if (info != null) {
-                    infos.add(info);
-                }
+            DecoratorSupport decoratorSupport = beanManagerImpl.getDecoratorSupport();
+            if (decoratorSupport == null) {
+                return conversation;
             }
+
+            Set<Type> types = new HashSet<>();
+            types.add(Conversation.class);
+            types.add(Object.class);
+            Set<Annotation> qualifiers = new HashSet<>();
+            qualifiers.add(Default.Literal.INSTANCE);
+            qualifiers.add(Any.Literal.INSTANCE);
+            List<DecoratorInfo> infos = decoratorSupport.resolve(types, qualifiers);
             if (infos.isEmpty()) {
                 return conversation;
             }
-            DecoratorChain chain = new DecoratorAwareProxyGenerator()
-                    .createDecoratorChain(conversation, infos, beanManager, context);
-            return (Conversation) chain.getOutermostInstance();
+            Object decorated = decoratorSupport.applyDecoratorChain(conversation, infos, beanManagerImpl, context);
+            return decorated instanceof Conversation ? (Conversation) decorated : conversation;
         } catch (Exception ignored) {
             // Built-in conversation remains usable even if decorator wrapping fails.
             return conversation;
@@ -121,7 +115,7 @@ public class ConversationBean implements Bean<Conversation> {
     @Override
     public void destroy(Conversation instance, CreationalContext<Conversation> context) {
         // Singleton instance is never destroyed
-        // ThreadLocal cleanup should happen at the end of the request via ConversationImpl.clearCurrentConversation()
+        // Thread-local cleanup is handled by normal scope support during request lifecycle teardown.
         if (context != null) {
             context.release();
         }
@@ -168,15 +162,6 @@ public class ConversationBean implements Bean<Conversation> {
         return "ConversationBean[type=Conversation, scope=@RequestScoped, qualifiers=@Default]";
     }
 
-    private DecoratorInfo findDecoratorInfoByClass(Collection<DecoratorInfo> infos, Class<?> decoratorClass) {
-        for (DecoratorInfo info : infos) {
-            if (info.getDecoratorClass().equals(decoratorClass)) {
-                return info;
-            }
-        }
-        return null;
-    }
-
     private jakarta.enterprise.inject.spi.BeanManager resolveBeanManager() {
         if (beanManager != null) {
             return beanManager;
@@ -196,5 +181,16 @@ public class ConversationBean implements Bean<Conversation> {
         } catch (Exception ignored) {
             return null;
         }
+    }
+
+    private Conversation createConversationInstance() {
+        ScopeSupport activeScopeSupport = scopeSupport;
+        if (activeScopeSupport == null && beanManager != null) {
+            activeScopeSupport = beanManager.getScopeSupport();
+        }
+        if (activeScopeSupport == null) {
+            throw new IllegalStateException("Scope support is not configured");
+        }
+        return activeScopeSupport.createConversation();
     }
 }

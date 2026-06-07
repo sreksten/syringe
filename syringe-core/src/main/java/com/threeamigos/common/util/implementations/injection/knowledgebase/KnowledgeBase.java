@@ -3,9 +3,10 @@ package com.threeamigos.common.util.implementations.injection.knowledgebase;
 import com.threeamigos.common.util.implementations.injection.annotations.DynamicAnnotationRegistry;
 
 import com.threeamigos.common.util.implementations.injection.annotations.AlternativesHelper;
+import com.threeamigos.common.util.implementations.injection.annotations.AnnotationComparator;
 import com.threeamigos.common.util.implementations.injection.beansxml.BeansXmlOrderingHelper;
-import com.threeamigos.common.util.implementations.injection.events.ObserverMethodInfo;
-import com.threeamigos.common.util.implementations.injection.interceptors.InterceptorsHelper;
+import com.threeamigos.common.util.implementations.injection.builtinbeans.ActivateRequestContextInterceptor;
+import com.threeamigos.common.util.implementations.injection.events.ObserverMethodMetadata;
 import com.threeamigos.common.util.implementations.injection.resolution.BeanImpl;
 import com.threeamigos.common.util.implementations.injection.resolution.ProducerBean;
 import com.threeamigos.common.util.implementations.injection.beansxml.BeansXml;
@@ -20,12 +21,10 @@ import jakarta.enterprise.inject.spi.*;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AlternativesHelper.isAlternativeViaAnnotationOrStereotype;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotatedMetadataHelper.*;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationExtractors.getPriorityValue;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.*;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.hasBuiltInNormalScopeAnnotation;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
 import static com.threeamigos.common.util.implementations.injection.spi.SPIUtils.extractPrioritizedInterfacePriority;
 
 public class KnowledgeBase {
@@ -62,15 +61,10 @@ public class KnowledgeBase {
     private final KnowledgeBaseEnablementStore enablementStore = new KnowledgeBaseEnablementStore();
     private final KnowledgeBaseProblemCollector problemCollector = new KnowledgeBaseProblemCollector();
     private final BeansXmlOrderingHelper beansXmlOrderingHelper;
-    private final InterceptorsHelper interceptorsHelper;
 
     public KnowledgeBase(MessageHandler messageHandler) {
         this.messageHandler = messageHandler;
         this.beansXmlOrderingHelper = new BeansXmlOrderingHelper(discoveryStore.getBeansXmlConfigurations());
-        this.interceptorsHelper = new InterceptorsHelper(
-                beanRegistryStore.getInterceptorInfos(),
-                this::getApplicationInterceptorOrder,
-                this::getInterceptorBeansXmlOrder);
     }
 
     public void exclude(Class<?>... excludedClasses) {
@@ -408,9 +402,9 @@ public class KnowledgeBase {
      * Adds fully validated observer method metadata to the knowledge base.
      * This should be called after validating the observer method.
      *
-     * @param observerMethodInfo the validated observer method metadata
+     * @param observerMethodInfo the observer method metadata
      */
-    public void addObserverMethodInfo(ObserverMethodInfo observerMethodInfo) {
+    public void addObserverMethodInfo(ObserverMethodMetadata observerMethodInfo) {
         beanRegistryStore.addObserverMethodInfo(observerMethodInfo);
     }
 
@@ -420,7 +414,7 @@ public class KnowledgeBase {
      *
      * @return collection of observer method metadata
      */
-    public Collection<ObserverMethodInfo> getObserverMethodInfos() {
+    public Collection<ObserverMethodMetadata> getObserverMethodInfos() {
         return beanRegistryStore.getObserverMethodInfos();
     }
 
@@ -461,7 +455,7 @@ public class KnowledgeBase {
     public List<InterceptorInfo> getInterceptorsByBindingsAndType(
             InterceptionType interceptionType,
             Set<Annotation> targetBindings) {
-        return interceptorsHelper.getInterceptorsByBindingsAndType(interceptionType, targetBindings);
+        return resolveInterceptorsByBindingsAndType(interceptionType, targetBindings);
     }
 
     /**
@@ -476,7 +470,10 @@ public class KnowledgeBase {
     public List<InterceptorInfo> getInterceptorsByBindingAndType(
             InterceptionType interceptionType,
             Annotation binding) {
-        return interceptorsHelper.getInterceptorsByBindingAndType(interceptionType, binding);
+        if (binding == null) {
+            return Collections.emptyList();
+        }
+        return resolveInterceptorsByBindingsAndType(interceptionType, Collections.singleton(binding));
     }
 
     /**
@@ -490,7 +487,11 @@ public class KnowledgeBase {
      */
     public List<InterceptorInfo> getInterceptorsByType(
             InterceptionType interceptionType) {
-        return interceptorsHelper.getInterceptorsByType(interceptionType);
+        return beanRegistryStore.getInterceptorInfos().stream()
+                .filter(this::isInterceptorEnabledForResolution)
+                .filter(info -> supportsInterceptionType(info, interceptionType))
+                .sorted(this::compareInterceptors)
+                .collect(Collectors.toList());
     }
 
     /**
@@ -503,7 +504,14 @@ public class KnowledgeBase {
      * @return list of matching interceptors sorted by priority
      */
     public List<InterceptorInfo> getInterceptorsByBindings(Set<Annotation> targetBindings) {
-        return interceptorsHelper.getInterceptorsByBindings(targetBindings);
+        if (targetBindings == null || targetBindings.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return beanRegistryStore.getInterceptorInfos().stream()
+                .filter(this::isInterceptorEnabledForResolution)
+                .filter(info -> hasMatchingBindings(info, targetBindings))
+                .sorted(this::compareInterceptors)
+                .collect(Collectors.toList());
     }
 
     public void setApplicationInterceptorOrder(List<Class<?>> orderedInterceptors) {
@@ -575,7 +583,112 @@ public class KnowledgeBase {
      * @return set of all interceptor binding annotation types
      */
     public Set<Class<? extends Annotation>> getAllInterceptorBindingTypes() {
-        return interceptorsHelper.getAllInterceptorBindingTypes();
+        return beanRegistryStore.getInterceptorInfos().stream()
+                .flatMap(info -> info.getInterceptorBindings().stream())
+                .map(Annotation::annotationType)
+                .collect(Collectors.toSet());
+    }
+
+    private List<InterceptorInfo> resolveInterceptorsByBindingsAndType(
+            InterceptionType interceptionType,
+            Set<Annotation> targetBindings) {
+
+        if (targetBindings == null || targetBindings.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return beanRegistryStore.getInterceptorInfos().stream()
+                .filter(this::isInterceptorEnabledForResolution)
+                .filter(info -> supportsInterceptionType(info, interceptionType))
+                .filter(info -> hasMatchingBindings(info, targetBindings))
+                .sorted(this::compareInterceptors)
+                .collect(Collectors.toList());
+    }
+
+    private boolean isInterceptorEnabledForResolution(InterceptorInfo info) {
+        if (info == null) {
+            return false;
+        }
+        Class<?> interceptorClass = info.getInterceptorClass();
+        if (interceptorClass == null) {
+            return false;
+        }
+        if (ActivateRequestContextInterceptor.class.getName().equals(interceptorClass.getName())) {
+            return true;
+        }
+        return getApplicationInterceptorOrder(interceptorClass) >= 0
+                || getInterceptorBeansXmlOrder(interceptorClass) >= 0;
+    }
+
+    private boolean supportsInterceptionType(InterceptorInfo interceptorInfo, InterceptionType interceptionType) {
+        switch (interceptionType) {
+            case AROUND_INVOKE:
+                return interceptorInfo.hasAroundInvoke();
+            case AROUND_CONSTRUCT:
+                return interceptorInfo.hasAroundConstruct();
+            case POST_CONSTRUCT:
+                return interceptorInfo.getPostConstructMethod() != null;
+            case PRE_DESTROY:
+                return interceptorInfo.getPreDestroyMethod() != null;
+            case AROUND_TIMEOUT:
+            default:
+                return false;
+        }
+    }
+
+    private boolean hasMatchingBindings(InterceptorInfo interceptorInfo, Set<Annotation> targetBindings) {
+        Set<Annotation> interceptorBindings = interceptorInfo.getInterceptorBindings();
+        for (Annotation interceptorBinding : interceptorBindings) {
+            boolean found = false;
+            for (Annotation targetBinding : targetBindings) {
+                if (AnnotationComparator.equals(interceptorBinding, targetBinding)) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private int compareInterceptors(InterceptorInfo left, InterceptorInfo right) {
+        boolean leftPriority = hasPriorityAnnotation(left.getInterceptorClass());
+        boolean rightPriority = hasPriorityAnnotation(right.getInterceptorClass());
+
+        if (leftPriority && rightPriority) {
+            int byPriority = Integer.compare(left.getPriority(), right.getPriority());
+            if (byPriority != 0) {
+                return byPriority;
+            }
+        } else if (leftPriority != rightPriority) {
+            return leftPriority ? -1 : 1;
+        }
+
+        int leftOrder = getApplicationInterceptorOrder(left.getInterceptorClass());
+        int rightOrder = getApplicationInterceptorOrder(right.getInterceptorClass());
+        if (leftOrder >= 0 && rightOrder >= 0) {
+            int byOrder = Integer.compare(leftOrder, rightOrder);
+            if (byOrder != 0) {
+                return byOrder;
+            }
+        } else if (leftOrder >= 0 || rightOrder >= 0) {
+            return leftOrder >= 0 ? -1 : 1;
+        }
+
+        int leftBeansXmlOrder = getInterceptorBeansXmlOrder(left.getInterceptorClass());
+        int rightBeansXmlOrder = getInterceptorBeansXmlOrder(right.getInterceptorClass());
+        if (leftBeansXmlOrder >= 0 && rightBeansXmlOrder >= 0) {
+            int byBeansXmlOrder = Integer.compare(leftBeansXmlOrder, rightBeansXmlOrder);
+            if (byBeansXmlOrder != 0) {
+                return byBeansXmlOrder;
+            }
+        } else if (leftBeansXmlOrder >= 0 || rightBeansXmlOrder >= 0) {
+            return leftBeansXmlOrder >= 0 ? -1 : 1;
+        }
+
+        return left.getInterceptorClass().getName().compareTo(right.getInterceptorClass().getName());
     }
 
     // === Programmatic Bean Registration (for InjectorImpl2) ===

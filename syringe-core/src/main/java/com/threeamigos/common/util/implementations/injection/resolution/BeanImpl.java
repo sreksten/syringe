@@ -1,15 +1,10 @@
 package com.threeamigos.common.util.implementations.injection.resolution;
 
-import com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates;
-
 import com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum;
-import com.threeamigos.common.util.implementations.injection.decorators.DecoratorAwareProxyGenerator;
-import com.threeamigos.common.util.implementations.injection.decorators.DecoratorChain;
-import com.threeamigos.common.util.implementations.injection.decorators.DecoratorResolver;
-import com.threeamigos.common.util.implementations.injection.interceptors.InterceptorAwareProxyGenerator;
-import com.threeamigos.common.util.implementations.injection.interceptors.InterceptorChain;
-import com.threeamigos.common.util.implementations.injection.interceptors.InvocationContextImpl;
-import com.threeamigos.common.util.implementations.injection.interceptors.InterceptorResolver;
+import com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper;
+import com.threeamigos.common.util.implementations.injection.decorators.DecoratorSupport;
+import com.threeamigos.common.util.implementations.injection.interceptors.InterceptorChainModel;
+import com.threeamigos.common.util.implementations.injection.interceptors.InterceptorSupport;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.InterceptorInfo;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.DecoratorInfo;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.KnowledgeBase;
@@ -17,9 +12,7 @@ import com.threeamigos.common.util.implementations.injection.spi.BeanManagerImpl
 import com.threeamigos.common.util.implementations.injection.spi.InjectionTargetFactoryImpl;
 import com.threeamigos.common.util.implementations.injection.scopes.ContextManager;
 import com.threeamigos.common.util.implementations.injection.scopes.InjectionPointImpl;
-import com.threeamigos.common.util.implementations.injection.scopes.RequestScopedContext;
 import com.threeamigos.common.util.implementations.injection.scopes.ScopeContext;
-import com.threeamigos.common.util.implementations.injection.annotations.AnnotatedMetadataHelper;
 import com.threeamigos.common.util.implementations.injection.util.LifecycleMethodHelper;
 import jakarta.enterprise.context.Dependent;
 import jakarta.enterprise.context.RequestScoped;
@@ -188,10 +181,10 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
     // ====================================================================================
 
     /**
-     * InterceptorResolver - resolves which interceptors apply to this bean's methods.
+     * InterceptorSupport SPI facade for interceptor resolution/proxying/lifecycle invocation.
      * Set during container initialization.
      */
-    private InterceptorResolver interceptorResolver;
+    private InterceptorSupport interceptorSupport;
 
     /**
      * KnowledgeBase - provides access to interceptor metadata.
@@ -203,32 +196,32 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
      * Map of methods to their interceptor chains.
      * Built once during bean initialization and cached for performance.
      * Key: Method object from beanClass
-     * Value: Pre-built InterceptorChain for that method
+     * Value: Pre-built InterceptorChainModel for that method
      * Only contains entries for methods that have interceptors.
      * Methods without interceptors are not in this map (for memory efficiency).
      */
-    private Map<Method, InterceptorChain> methodInterceptorChains;
+    private Map<Method, InterceptorChainModel> methodInterceptorChains;
 
     /**
      * PHASE 3: Constructor interceptor chain (@AroundConstruct).
      * Built once during bean initialization if the bean has constructor interceptors.
      * Null if no constructor interceptors are present.
      */
-    private InterceptorChain constructorInterceptorChain;
+    private InterceptorChainModel constructorInterceptorChain;
 
     /**
      * PHASE 4: @PostConstruct interceptor chain.
      * Built once during bean initialization if the bean has @PostConstruct interceptors.
      * Null if no @PostConstruct interceptors are present.
      */
-    private InterceptorChain postConstructInterceptorChain;
+    private InterceptorChainModel postConstructInterceptorChain;
 
     /**
      * PHASE 4: @PreDestroy interceptor chain.
      * Built once during bean initialization if the bean has @PreDestroy interceptors.
      * Null if no @PreDestroy interceptors are present.
      */
-    private InterceptorChain preDestroyInterceptorChain;
+    private InterceptorChainModel preDestroyInterceptorChain;
     private List<Method> targetClassAroundInvokeMethods = Collections.emptyList();
 
     /**
@@ -245,27 +238,15 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
     private final Map<Class<?>, Bean<?>> interceptorMetadataBeanCache = new ConcurrentHashMap<>();
     private final Map<Class<?>, InterceptorInfo> interceptorInfoByClass = new ConcurrentHashMap<>();
 
-    /**
-     * InterceptorAwareProxyGenerator - creates proxies that execute interceptor chains.
-     * Shared across all beans (stateless).
-     */
-    private InterceptorAwareProxyGenerator interceptorAwareProxyGenerator;
-
     // ====================================================================================
     // PHASE 3: Decorator Support - Bean-level Decoration
     // ====================================================================================
 
     /**
-     * DecoratorResolver - resolves which decorators apply to this bean's types.
-     * Set during container initialization by InjectorImpl2.
+     * Decorator support SPI facade for decorator resolution/proxying.
+     * Set during container initialization.
      */
-    private DecoratorResolver decoratorResolver;
-
-    /**
-     * DecoratorAwareProxyGenerator - creates decorator chains with @Delegate injection.
-     * Shared across all beans.
-     */
-    private DecoratorAwareProxyGenerator decoratorAwareProxyGenerator;
+    private DecoratorSupport decoratorSupport;
 
     /**
      * BeanManager - needed for creating decorator instances.
@@ -562,7 +543,7 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
         }
 
         // Check if the scope is explicitly @Dependent
-        return AnnotationPredicates.hasDependentAnnotation(scope);
+        return AnnotationsHelper.hasDependentAnnotation(scope);
     }
 
     @Override
@@ -601,11 +582,11 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
     }
 
     private void destroyDecorators(T instance) {
-        if (instance == null || decoratorAwareProxyGenerator == null) {
+        if (instance == null || decoratorSupport == null) {
             return;
         }
         try {
-            decoratorAwareProxyGenerator.destroyDecoratorChain(instance);
+            decoratorSupport.destroyDecoratorChain(instance);
         } catch (RuntimeException ignored) {
             // Bean destruction should continue even if decorator cleanup fails.
         }
@@ -841,7 +822,7 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
                 injectionPoint.getAnnotated().getAnnotations() != null) {
             for (Annotation annotation : injectionPoint.getAnnotated().getAnnotations()) {
                 if (annotation != null &&
-                        AnnotationPredicates.hasTransientReferenceAnnotation(annotation.annotationType())) {
+                        AnnotationsHelper.hasTransientReferenceAnnotation(annotation.annotationType())) {
                     return true;
                 }
             }
@@ -851,7 +832,7 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
         }
         for (Annotation annotation : fallbackAnnotations) {
             if (annotation != null &&
-                    AnnotationPredicates.hasTransientReferenceAnnotation(annotation.annotationType())) {
+                    AnnotationsHelper.hasTransientReferenceAnnotation(annotation.annotationType())) {
                 return true;
             }
         }
@@ -902,7 +883,7 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
                 Set<Bean<?>> beans = beanManager.getBeans(argument.type, qualifiers);
                 if (beans != null && !beans.isEmpty()) {
                     Bean<?> resolved = beanManager.resolve(beans);
-                    if (resolved != null && AnnotationPredicates.hasDependentAnnotation(resolved.getScope())) {
+                    if (resolved != null && AnnotationsHelper.hasDependentAnnotation(resolved.getScope())) {
                         CreationalContext context = beanManager.createCreationalContext((Bean) resolved);
                         ((Bean) resolved).destroy(argument.instance, context);
                         return;
@@ -925,7 +906,7 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
             if (annotation == null || annotation.annotationType() == null) {
                 continue;
             }
-            if (AnnotationPredicates.hasQualifierAnnotation(annotation.annotationType())) {
+            if (AnnotationsHelper.hasQualifierAnnotation(annotation.annotationType())) {
                 qualifiers.add(annotation);
             }
         }
@@ -1110,12 +1091,7 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
             return;
         }
 
-        ScopeContext requestScopeContext = contextManager.getContext(RequestScoped.class);
-        boolean activatedTemporarily = false;
-        if (!requestScopeContext.isActive() && requestScopeContext instanceof RequestScopedContext) {
-            contextManager.activateRequest();
-            activatedTemporarily = true;
-        }
+        boolean activatedTemporarily = activateTemporaryRequestContext(contextManager);
 
         try {
             invokePostConstruct(instance);
@@ -1143,12 +1119,7 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
             return;
         }
 
-        ScopeContext requestScopeContext = contextManager.getContext(RequestScoped.class);
-        boolean activatedTemporarily = false;
-        if (!requestScopeContext.isActive() && requestScopeContext instanceof RequestScopedContext) {
-            contextManager.activateRequest();
-            activatedTemporarily = true;
-        }
+        boolean activatedTemporarily = activateTemporaryRequestContext(contextManager);
 
         try {
             if (postConstructInterceptorChain != null) {
@@ -1162,6 +1133,22 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
                 contextManager.deactivateRequest();
             }
         }
+    }
+
+    private boolean activateTemporaryRequestContext(ContextManager contextManager) {
+        if (contextManager == null) {
+            return false;
+        }
+        try {
+            ScopeContext requestScopeContext = contextManager.getContext(RequestScoped.class);
+            if (!requestScopeContext.isActive()) {
+                contextManager.activateRequest();
+                return contextManager.getContext(RequestScoped.class).isActive();
+            }
+        } catch (IllegalArgumentException ignored) {
+            // Request scope support not available.
+        }
+        return false;
     }
 
     private void invokeCustomInjectionTargetPreDestroyWithInterceptors(T instance) throws Exception {
@@ -1555,14 +1542,8 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
     // Interceptor Support Methods (Phase 2)
     // ====================================================================================
 
-    /**
-     * Sets the interceptor resolver for this bean.
-     * Called during container initialization by InjectorImpl.
-     *
-     * @param interceptorResolver the interceptor resolver to use
-     */
-    public void setInterceptorResolver(InterceptorResolver interceptorResolver) {
-        this.interceptorResolver = interceptorResolver;
+    public void setInterceptorSupport(InterceptorSupport interceptorSupport) {
+        this.interceptorSupport = interceptorSupport;
     }
 
     /**
@@ -1575,34 +1556,8 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
         this.knowledgeBase = knowledgeBase;
     }
 
-    /**
-     * Sets the interceptor-aware proxy generator for this bean.
-     * Called during container initialization by InjectorImpl.
-     *
-     * @param interceptorAwareProxyGenerator the proxy generator
-     */
-    public void setInterceptorAwareProxyGenerator(InterceptorAwareProxyGenerator interceptorAwareProxyGenerator) {
-        this.interceptorAwareProxyGenerator = interceptorAwareProxyGenerator;
-    }
-
-    /**
-     * Sets the decorator resolver for this bean.
-     * Called during container initialization by InjectorImpl2.
-     *
-     * @param decoratorResolver the decorator resolver
-     */
-    public void setDecoratorResolver(DecoratorResolver decoratorResolver) {
-        this.decoratorResolver = decoratorResolver;
-    }
-
-    /**
-     * Sets the decorator-aware proxy generator for this bean.
-     * Called during container initialization by InjectorImpl2.
-     *
-     * @param decoratorAwareProxyGenerator the decorator proxy generator
-     */
-    public void setDecoratorAwareProxyGenerator(DecoratorAwareProxyGenerator decoratorAwareProxyGenerator) {
-        this.decoratorAwareProxyGenerator = decoratorAwareProxyGenerator;
+    public void setDecoratorSupport(DecoratorSupport decoratorSupport) {
+        this.decoratorSupport = decoratorSupport;
     }
 
     /**
@@ -1628,7 +1583,7 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
      * <ol>
      * <li>Iterate through all declared methods in the bean class</li>
      * <li>For each method, use InterceptorResolver to find applicable interceptors</li>
-     * <li>If interceptors are found, build an InterceptorChain and cache it</li>
+     * <li>If interceptors are found, build an InterceptorChainModel and cache it</li>
      * <li>Methods without interceptors are not added to the map (memory optimization)</li>
      * <li>Build constructor interceptor chain if @AroundConstruct interceptors exist</li>
      * <li>Build @PostConstruct interceptor chain if lifecycle interceptors exist</li>
@@ -1656,7 +1611,7 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
      */
     public void buildMethodInterceptorChains() {
         // If no interceptor support configured, skip chain building
-        if (interceptorResolver == null || knowledgeBase == null) {
+        if (interceptorSupport == null || knowledgeBase == null) {
             this.methodInterceptorChains = Collections.emptyMap();
             this.constructorInterceptorChain = null;
             this.postConstructInterceptorChain = null;
@@ -1670,7 +1625,7 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
         // ========================================================================
         // PHASE 2: Build business method interceptor chains (@AroundInvoke)
         // ========================================================================
-        Map<Method, InterceptorChain> chains = new HashMap<>();
+        Map<Method, InterceptorChainModel> chains = new HashMap<>();
         jakarta.enterprise.inject.spi.AnnotatedType<?> beanAnnotatedType = annotatedTypeMetadata;
         if (beanAnnotatedType == null && knowledgeBase != null) {
             beanAnnotatedType = knowledgeBase.getAnnotatedTypeOverride(beanClass);
@@ -1702,16 +1657,16 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
                 }
 
                 // Use InterceptorResolver to find applicable interceptors for this method
-                List<InterceptorInfo> interceptors = interceptorResolver.resolve(
+                List<InterceptorInfo> interceptors = interceptorSupport.resolve(
                     beanClass,
                     method,
                     beanAnnotatedType,
                     InterceptionType.AROUND_INVOKE
                 );
-                Set<Annotation> methodBindings = interceptorResolver.resolveBindings(beanClass, method, beanAnnotatedType);
+                Set<Annotation> methodBindings = interceptorSupport.resolveBindings(beanClass, method, beanAnnotatedType);
 
                 if (!methodBindings.isEmpty()) {
-                    InterceptorChain chain = buildInterceptorChain(
+                    InterceptorChainModel chain = buildInterceptorChain(
                             interceptors,
                             InterceptionType.AROUND_INVOKE,
                             methodBindings
@@ -1731,7 +1686,7 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
                     legacyInterceptors = classLevelLegacyInterceptors;
                 }
                 if (!legacyInterceptors.isEmpty()) {
-                    InterceptorChain legacyChain = buildLegacyInterceptorChain(legacyInterceptors);
+                    InterceptorChainModel legacyChain = buildLegacyInterceptorChain(legacyInterceptors);
                     if (legacyChain != null) {
                         chains.put(method, legacyChain);
                     }
@@ -1753,7 +1708,7 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
             }
         }
 
-        List<InterceptorInfo> constructorInterceptors = interceptorResolver.resolveForConstructor(
+        List<InterceptorInfo> constructorInterceptors = interceptorSupport.resolveForConstructor(
             beanClass,
             constructorForInterception,
             beanAnnotatedType,
@@ -1761,8 +1716,11 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
         );
 
         if (!constructorInterceptors.isEmpty()) {
-            Set<Annotation> constructorBindings =
-                    interceptorResolver.resolveBindingsForConstructor(beanClass, constructorForInterception, beanAnnotatedType);
+            Set<Annotation> constructorBindings = interceptorSupport.resolveBindingsForConstructor(
+                    beanClass,
+                    constructorForInterception,
+                    beanAnnotatedType
+            );
             this.constructorInterceptorChain = buildInterceptorChain(
                 constructorInterceptors,
                 InterceptionType.AROUND_CONSTRUCT,
@@ -1777,13 +1735,13 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
         // ========================================================================
 
         // @PostConstruct interceptor chain
-        List<InterceptorInfo> postConstructInterceptors = interceptorResolver.resolve(
+        List<InterceptorInfo> postConstructInterceptors = interceptorSupport.resolve(
             beanClass,
             null,  // null method = lifecycle callback
             beanAnnotatedType,
             InterceptionType.POST_CONSTRUCT
         );
-        Set<Annotation> lifecycleBindings = interceptorResolver.resolveBindings(beanClass, null, beanAnnotatedType);
+        Set<Annotation> lifecycleBindings = interceptorSupport.resolveBindings(beanClass, null, beanAnnotatedType);
 
         if (!postConstructInterceptors.isEmpty()) {
             this.postConstructInterceptorChain = buildLifecycleInterceptorChain(
@@ -1804,7 +1762,7 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
         }
 
         // @PreDestroy interceptor chain
-        List<InterceptorInfo> preDestroyInterceptors = interceptorResolver.resolve(
+        List<InterceptorInfo> preDestroyInterceptors = interceptorSupport.resolve(
             beanClass,
             null,  // null method = lifecycle callback
             beanAnnotatedType,
@@ -1831,13 +1789,13 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
     }
 
     /**
-     * Builds an InterceptorChain from a list of InterceptorInfo objects.
+     * Builds an InterceptorChainModel from a list of InterceptorInfo objects.
      * <p>
      * This method:
      * <ol>
      * <li>Creates interceptor instances for each InterceptorInfo (with caching)</li>
      * <li>Retrieves the appropriate interceptor method based on the interception type</li>
-     * <li>Builds a chain using the InterceptorChain.Builder</li>
+     * <li>Builds a chain using InterceptorSupport chain builder SPI</li>
      * <li>Returns the immutable, thread-safe chain</li>
      * </ol>
      *
@@ -1854,14 +1812,14 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
      *
      * @param interceptors list of interceptor metadata, sorted by priority
      * @param interceptionType the type of interception (AROUND_INVOKE, AROUND_CONSTRUCT, etc.)
-     * @return an immutable InterceptorChain ready for execution
+     * @return an immutable InterceptorChainModel ready for execution
      * @throws RuntimeException if interceptor instance creation fails
      */
-    private InterceptorChain buildInterceptorChain(List<InterceptorInfo> interceptors,
+    private InterceptorChainModel buildInterceptorChain(List<InterceptorInfo> interceptors,
                                                    InterceptionType interceptionType,
                                                    Set<Annotation> interceptorBindings) {
         // Use the Builder pattern to construct the chain
-        InterceptorChain.Builder builder = InterceptorChain.builder()
+        InterceptorChainModel.Builder builder = interceptorSupport.newChainBuilder()
                 .withInterceptorBindings(interceptorBindings);
 
         addResolvedInterceptorInvocations(builder, interceptors, interceptionType, interceptorBindings);
@@ -1884,16 +1842,16 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
      *
      * @param interceptors list of interceptor metadata, sorted by priority
      * @param interceptionType POST_CONSTRUCT or PRE_DESTROY
-     * @return an immutable InterceptorChain ready for execution
+     * @return an immutable InterceptorChainModel ready for execution
      */
-    private InterceptorChain buildLifecycleInterceptorChain(
+    private InterceptorChainModel buildLifecycleInterceptorChain(
             List<InterceptorInfo> interceptors,
             InterceptionType interceptionType,
             Set<Annotation> interceptorBindings,
             List<Class<?>> legacyInterceptorClasses) {
 
         // Use the Builder pattern to construct the chain
-        InterceptorChain.Builder builder = InterceptorChain.builder()
+        InterceptorChainModel.Builder builder = interceptorSupport.newChainBuilder()
                 .withInterceptorBindings(interceptorBindings);
 
         addLegacyInterceptorInvocations(builder, legacyInterceptorClasses, interceptionType);
@@ -1907,7 +1865,7 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
         return builder.build();
     }
 
-    private void addLegacyInterceptorInvocations(InterceptorChain.Builder builder,
+    private void addLegacyInterceptorInvocations(InterceptorChainModel.Builder builder,
                                                  List<Class<?>> legacyInterceptorClasses,
                                                  InterceptionType interceptionType) {
         if (legacyInterceptorClasses == null || legacyInterceptorClasses.isEmpty()) {
@@ -1929,7 +1887,7 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
         }
     }
 
-    private void addResolvedInterceptorInvocations(InterceptorChain.Builder builder,
+    private void addResolvedInterceptorInvocations(InterceptorChainModel.Builder builder,
                                                    List<InterceptorInfo> interceptors,
                                                    InterceptionType interceptionType,
                                                    Set<Annotation> interceptorBindings) {
@@ -1999,7 +1957,7 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
         }
     }
 
-    private void addInterceptorInfoInvocations(InterceptorChain.Builder builder,
+    private void addInterceptorInfoInvocations(InterceptorChainModel.Builder builder,
                                                InterceptorInfo interceptorInfo,
                                                InterceptionType interceptionType) {
         if (interceptorInfo == null || interceptorInfo.getInterceptorClass() == null) {
@@ -2018,7 +1976,7 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
     }
 
     private void addProgrammaticInterceptorInvocation(
-            InterceptorChain.Builder builder,
+            InterceptorChainModel.Builder builder,
             Interceptor<?> interceptor,
             InterceptionType interceptionType) {
         if (!interceptor.intercepts(interceptionType)) {
@@ -2132,16 +2090,16 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
             return false;
         }
         if (interceptionType == InterceptionType.AROUND_INVOKE) {
-            return AnnotationPredicates.hasAroundInvokeAnnotation(method);
+            return AnnotationsHelper.hasAroundInvokeAnnotation(method);
         }
         if (interceptionType == InterceptionType.AROUND_CONSTRUCT) {
-            return AnnotationPredicates.hasAroundConstructAnnotation(method);
+            return AnnotationsHelper.hasAroundConstructAnnotation(method);
         }
         if (interceptionType == InterceptionType.POST_CONSTRUCT) {
-            return AnnotationPredicates.hasPostConstructAnnotation(method);
+            return AnnotationsHelper.hasPostConstructAnnotation(method);
         }
         if (interceptionType == InterceptionType.PRE_DESTROY) {
-            return AnnotationPredicates.hasPreDestroyAnnotation(method);
+            return AnnotationsHelper.hasPreDestroyAnnotation(method);
         }
         return false;
     }
@@ -2284,11 +2242,19 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
     }
 
     private Object normalizeInterceptionTarget(Object target) {
-        if (target instanceof InterceptorAwareProxyGenerator.InterceptorProxyState) {
-            Object unwrapped = ((InterceptorAwareProxyGenerator.InterceptorProxyState) target).$$_getTargetInstance();
+        if (target == null) {
+            return null;
+        }
+        try {
+            Method getter = target.getClass().getMethod("$$_getTargetInstance");
+            Object unwrapped = getter.invoke(target);
             if (unwrapped != null) {
                 return unwrapped;
             }
+        } catch (NoSuchMethodException ignored) {
+            // Not an interceptor proxy.
+        } catch (Exception ignored) {
+            // Best-effort unwrapping; fall back to the provided target.
         }
         return target;
     }
@@ -2354,15 +2320,16 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
     }
 
     private void ensureLifecycleInterceptorChainsInitialized() {
-        if (interceptorResolver == null) {
+        if (interceptorSupport == null) {
             return;
         }
         List<Class<?>> classLevelLegacyInterceptors =
                 extractLegacyInterceptorClasses(resolveLegacyInterceptorClassAnnotations(annotatedTypeMetadata));
 
         if (postConstructInterceptorChain == null) {
-            List<InterceptorInfo> postConstructInterceptors = interceptorResolver.resolve(
+            List<InterceptorInfo> postConstructInterceptors = interceptorSupport.resolve(
                     beanClass,
+                    null,
                     null,
                     InterceptionType.POST_CONSTRUCT
             );
@@ -2370,15 +2337,16 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
                 postConstructInterceptorChain = buildLifecycleInterceptorChain(
                         postConstructInterceptors,
                         InterceptionType.POST_CONSTRUCT,
-                        interceptorResolver.resolveBindings(beanClass, null),
+                        interceptorSupport.resolveBindings(beanClass, null, null),
                         classLevelLegacyInterceptors
                 );
             }
         }
 
         if (preDestroyInterceptorChain == null) {
-            List<InterceptorInfo> preDestroyInterceptors = interceptorResolver.resolve(
+            List<InterceptorInfo> preDestroyInterceptors = interceptorSupport.resolve(
                     beanClass,
+                    null,
                     null,
                     InterceptionType.PRE_DESTROY
             );
@@ -2386,7 +2354,7 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
                 preDestroyInterceptorChain = buildLifecycleInterceptorChain(
                         preDestroyInterceptors,
                         InterceptionType.PRE_DESTROY,
-                        interceptorResolver.resolveBindings(beanClass, null),
+                        interceptorSupport.resolveBindings(beanClass, null, null),
                         classLevelLegacyInterceptors
                 );
             }
@@ -2395,21 +2363,22 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
 
     private void invokeLifecycleChainWithCustomTarget(
             T instance,
-            InterceptorChain lifecycleChain,
+            InterceptorChainModel lifecycleChain,
             Runnable targetCallback) throws Exception {
-
-        InvocationContextImpl.TargetInvocation targetInvocation = context -> {
+        if (targetCallback == null) {
+            return;
+        }
+        if (lifecycleChain == null || interceptorSupport == null) {
             targetCallback.run();
-            return null;
-        };
-
-        InvocationContextImpl invocationContext = new InvocationContextImpl(
-                instance,
-                lifecycleChain,
-                targetInvocation
-        );
-
-        invocationContext.proceed();
+            return;
+        }
+        interceptorSupport.invokeLifecycle(instance, lifecycleChain, new InterceptorSupport.LifecycleTargetInvocation() {
+            @Override
+            public Object proceed() {
+                targetCallback.run();
+                return null;
+            }
+        });
     }
 
     /**
@@ -2420,7 +2389,7 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
      *
      * @return the method interceptor chains map (can be empty, never null)
      */
-    public Map<Method, InterceptorChain> getMethodInterceptorChains() {
+    public Map<Method, InterceptorChainModel> getMethodInterceptorChains() {
         return methodInterceptorChains != null ? methodInterceptorChains : Collections.emptyMap();
     }
 
@@ -2446,9 +2415,9 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
      * @throws IllegalStateException if interceptor support is not configured
      */
     public T createInterceptorAwareProxy(T targetInstance) {
-        if (interceptorAwareProxyGenerator == null) {
+        if (interceptorSupport == null) {
             throw new IllegalStateException(
-                "InterceptorAwareProxyGenerator not set for bean: " + beanClass.getName()
+                "InterceptorSupport not set for bean: " + beanClass.getName()
             );
         }
 
@@ -2460,7 +2429,7 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
             return targetInstance;
         }
 
-        Map<Method, InterceptorChain> effectiveChains = new HashMap<>();
+        Map<Method, InterceptorChainModel> effectiveChains = new HashMap<>();
         if (hasMethodChains) {
             effectiveChains.putAll(methodInterceptorChains);
         }
@@ -2485,11 +2454,11 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
                     if (!seenSignatures.add(signature)) {
                         continue;
                     }
-                    InterceptorChain.Builder chainBuilder = InterceptorChain.builder();
-                    InterceptorChain existingChain = effectiveChains.get(method);
+                    InterceptorChainModel.Builder chainBuilder = interceptorSupport.newChainBuilder();
+                    InterceptorChainModel existingChain = effectiveChains.get(method);
                     if (existingChain != null) {
                         chainBuilder.withInterceptorBindings(existingChain.getInterceptorBindings());
-                        for (InterceptorChain.InterceptorInvocation invocation : existingChain.getInvocations()) {
+                        for (InterceptorChainModel.InterceptorInvocation invocation : existingChain.getInvocations()) {
                             chainBuilder.addInvocation(invocation);
                         }
                     }
@@ -2503,7 +2472,8 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
         }
 
         // Create and return an interceptor-aware proxy
-        return interceptorAwareProxyGenerator.createProxy(this, targetInstance, effectiveChains);
+        Object proxied = interceptorSupport.applyInterceptorProxy(targetInstance, this, effectiveChains);
+        return proxied != null ? beanClass.cast(proxied) : targetInstance;
     }
 
     private List<Method> findTargetClassAroundInvokeMethods(Class<?> type) {
@@ -2552,7 +2522,7 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
             return new Annotation[0];
         }
         if (beanAnnotatedType != null) {
-            return AnnotatedMetadataHelper.annotationsOf(beanAnnotatedType, method);
+            return AnnotationsHelper.annotationsOf(beanAnnotatedType, method);
         }
         return method.getAnnotations();
     }
@@ -2580,11 +2550,11 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
         return Collections.emptyList();
     }
 
-    private InterceptorChain buildLegacyInterceptorChain(List<Class<?>> interceptorClasses) {
+    private InterceptorChainModel buildLegacyInterceptorChain(List<Class<?>> interceptorClasses) {
         if (interceptorClasses == null || interceptorClasses.isEmpty()) {
             return null;
         }
-        InterceptorChain.Builder builder = InterceptorChain.builder();
+        InterceptorChainModel.Builder builder = interceptorSupport.newChainBuilder();
         for (Class<?> interceptorClass : interceptorClasses) {
             if (interceptorClass == null) {
                 continue;
@@ -2606,7 +2576,7 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
         Class<?> current = interceptorClass;
         while (current != null && current != Object.class) {
             for (Method method : current.getDeclaredMethods()) {
-                if (AnnotationPredicates.hasAroundInvokeAnnotation(method)) {
+                if (AnnotationsHelper.hasAroundInvokeAnnotation(method)) {
                     if (Modifier.isStatic(method.getModifiers())) {
                         continue;
                     }
@@ -2661,7 +2631,7 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
 
         // Look for @Inject constructor
         for (Constructor<?> ctor : constructors) {
-            if (AnnotationPredicates.hasInjectAnnotation(ctor)) {
+            if (AnnotationsHelper.hasInjectAnnotation(ctor)) {
                 return ctor;
             }
         }
@@ -2735,7 +2705,7 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
         Class<?> currentClass = clazz;
         while (currentClass != null && currentClass != Object.class) {
             for (Field field : currentClass.getDeclaredFields()) {
-                if (AnnotationPredicates.hasInjectAnnotation(field)) {
+                if (AnnotationsHelper.hasInjectAnnotation(field)) {
                     field.setAccessible(true);
 
                     Type fieldType = field.getGenericType();
@@ -2776,7 +2746,7 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
         Class<?> currentClass = clazz;
         while (currentClass != null && currentClass != Object.class) {
             for (Method method : currentClass.getDeclaredMethods()) {
-                if (AnnotationPredicates.hasInjectAnnotation(method)) {
+                if (AnnotationsHelper.hasInjectAnnotation(method)) {
                     method.setAccessible(true);
 
                     // Resolve method parameters
@@ -3026,7 +2996,7 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
             return false;
         }
         for (Annotation annotation : annotations) {
-            if (annotation != null && AnnotationPredicates.hasInterceptedAnnotation(annotation.annotationType())) {
+            if (annotation != null && AnnotationsHelper.hasInterceptedAnnotation(annotation.annotationType())) {
                 return true;
             }
         }
@@ -3046,7 +3016,7 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
         Class<?> currentClass = clazz;
         while (currentClass != null && currentClass != Object.class) {
             for (Method method : currentClass.getDeclaredMethods()) {
-                if (AnnotationPredicates.hasPostConstructAnnotation(method) && method.getParameterCount() == 0) {
+                if (AnnotationsHelper.hasPostConstructAnnotation(method) && method.getParameterCount() == 0) {
                     method.setAccessible(true);
                     method.invoke(instance);
                     return; // Only one @PostConstruct per class hierarchy
@@ -3068,10 +3038,10 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
      * @return true if this bean has decorators, false otherwise
      */
     public boolean hasDecorators() {
-        if (decoratorResolver == null) {
+        if (decoratorSupport == null) {
             return false;
         }
-        return decoratorResolver.hasDecorators(getTypes(), getQualifiers());
+        return decoratorSupport.hasDecorators(getTypes(), getQualifiers());
     }
 
     /**
@@ -3102,21 +3072,15 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
      */
     @SuppressWarnings("unchecked")
     public T createDecoratorChain(T targetInstance, CreationalContext<T> creationalContext) {
-        if (decoratorAwareProxyGenerator == null) {
+        if (decoratorSupport == null) {
             throw new IllegalStateException(
-                "DecoratorAwareProxyGenerator not set for bean: " + beanClass.getName()
-            );
-        }
-
-        if (decoratorResolver == null) {
-            throw new IllegalStateException(
-                "DecoratorResolver not set for bean: " + beanClass.getName()
+                "DecoratorSupport not set for bean: " + beanClass.getName()
             );
         }
 
         // Resolve decorators that apply to this bean
         List<DecoratorInfo> decorators =
-                decoratorResolver.resolve(getTypes(), getQualifiers());
+                decoratorSupport.resolve(getTypes(), getQualifiers());
 
         if (decorators.isEmpty()) {
             // No decorators apply, return target as-is
@@ -3131,15 +3095,12 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
             );
         }
 
-        // Create a decorator chain using DecoratorAwareProxyGenerator
-        DecoratorChain chain = decoratorAwareProxyGenerator.createDecoratorChain(
+        Object wrapped = decoratorSupport.applyDecoratorChain(
                 targetInstance,
                 decorators,
                 beanManager,
                 creationalContext
         );
-
-        // Return the outermost decorator (what client code will interact with)
-        return (T) chain.getOutermostInstance();
+        return wrapped != null ? (T) wrapped : targetInstance;
     }
 }

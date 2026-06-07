@@ -2,10 +2,6 @@ package com.threeamigos.common.util.implementations.injection.bce;
 
 import com.threeamigos.common.util.implementations.injection.annotations.DynamicAnnotationRegistry;
 
-import com.threeamigos.common.util.implementations.injection.annotations.AnnotationExtractors;
-
-import com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates;
-
 import com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.KnowledgeBase;
 import com.threeamigos.common.util.interfaces.messagehandler.MessageHandler;
@@ -28,6 +24,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
+
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
 
 final class BceMetaAnnotations implements MetaAnnotations {
 
@@ -67,14 +65,14 @@ final class BceMetaAnnotations implements MetaAnnotations {
     @Override
     public void addContext(Class<? extends Annotation> scopeAnnotation,
                            Class<? extends AlterableContext> contextImplementation) {
-        addContext(scopeAnnotation, AnnotationPredicates.hasNormalScopeAnnotation(scopeAnnotation), contextImplementation);
+        addContext(scopeAnnotation, hasNormalScopeAnnotation(scopeAnnotation), contextImplementation);
     }
 
     @Override
     public void addContext(Class<? extends Annotation> scopeAnnotation,
                            boolean isNormal,
                            Class<? extends AlterableContext> contextImplementation) {
-        boolean passivating = Boolean.TRUE.equals(AnnotationExtractors.getNormalScopePassivatingValue(scopeAnnotation));
+        boolean passivating = Boolean.TRUE.equals(getNormalScopePassivatingValue(scopeAnnotation));
         knowledgeBase.addScope(scopeAnnotation, isNormal, isNormal && passivating);
         knowledgeBase.addContextImplementation(scopeAnnotation, contextImplementation);
         messageHandler.info("[BCE] Registered context for scope " +
@@ -179,7 +177,7 @@ final class BceMetaAnnotations implements MetaAnnotations {
 
         @Override
         public MethodConfig addAnnotation(Class<? extends Annotation> annotationType) {
-            if (AnnotationPredicates.hasNonbindingAnnotation(annotationType)) {
+            if (hasNonbindingAnnotation(annotationType)) {
                 DynamicAnnotationRegistry.registerDynamicNonbindingMember(this.annotationType, methodName);
             }
             return this;
@@ -196,7 +194,7 @@ final class BceMetaAnnotations implements MetaAnnotations {
 
         @Override
         public MethodConfig addAnnotation(Annotation annotation) {
-            if (annotation != null && AnnotationPredicates.hasNonbindingAnnotation(annotation.annotationType())) {
+            if (annotation != null && hasNonbindingAnnotation(annotation.annotationType())) {
                 DynamicAnnotationRegistry.registerDynamicNonbindingMember(this.annotationType, methodName);
             }
             return this;

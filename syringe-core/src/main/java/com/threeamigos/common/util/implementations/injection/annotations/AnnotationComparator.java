@@ -4,6 +4,8 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasNonbindingAnnotation;
+
 /**
  * Utility class for comparing CDI annotations with @Nonbinding support.
  *
@@ -64,7 +66,7 @@ public class AnnotationComparator {
 
         for (Method method : methods) {
             // Skip members marked with @Nonbinding
-            if (AnnotationPredicates.hasNonbindingAnnotation(method)) {
+            if (hasNonbindingAnnotation(method)) {
                 continue;
             }
 
@@ -162,7 +164,7 @@ public class AnnotationComparator {
         Method[] methods = annotation.annotationType().getDeclaredMethods();
         for (Method method : methods) {
             // Skip members marked with @Nonbinding
-            if (AnnotationPredicates.hasNonbindingAnnotation(method)) {
+            if (hasNonbindingAnnotation(method)) {
                 continue;
             }
 

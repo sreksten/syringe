@@ -4,7 +4,6 @@ import com.threeamigos.common.util.implementations.injection.spi.BeanManagerImpl
 import com.threeamigos.common.util.implementations.injection.spi.spievents.SimpleAnnotatedType;
 import com.threeamigos.common.util.implementations.injection.spi.wrappers.AnnotatedConstructorWrapper;
 import com.threeamigos.common.util.implementations.injection.annotations.DefaultLiteral;
-import com.threeamigos.common.util.implementations.injection.annotations.QualifiersHelper;
 import com.threeamigos.common.util.implementations.injection.spi.wrappers.AnnotatedFieldWrapper;
 import com.threeamigos.common.util.implementations.injection.spi.wrappers.AnnotatedMethodWrapper;
 import com.threeamigos.common.util.implementations.injection.spi.wrappers.AnnotatedParameterWrapper;
@@ -34,8 +33,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.hasDelegateAnnotation;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.hasNamedAnnotation;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
 
 /**
  * Implementation of CDI InjectionPoint SPI.
@@ -141,7 +139,7 @@ public class InjectionPointImpl<T> implements InjectionPoint, Serializable {
      * @param annotations all annotations present on the injection point
      */
     private void collectQualifiers(Annotation[] annotations) {
-        for (Annotation qualifier : QualifiersHelper.extractQualifierAnnotations(annotations)) {
+        for (Annotation qualifier : extractQualifierAnnotations(annotations)) {
             qualifiers.add(normalizeNamedQualifier(qualifier));
         }
 

@@ -1,9 +1,5 @@
 package com.threeamigos.common.util.implementations.injection.bce;
 
-import com.threeamigos.common.util.implementations.injection.annotations.AnnotationExtractors;
-
-import com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates;
-
 import com.threeamigos.common.util.implementations.injection.discovery.NonPortableBehaviourException;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.KnowledgeBase;
 import com.threeamigos.common.util.implementations.injection.spi.BeanManagerImpl;
@@ -61,8 +57,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasRequiredEnhancementAnnotation;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.*;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationExtractors.*;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
 import static com.threeamigos.common.util.implementations.injection.spi.SPIUtils.*;
 
 /**
@@ -215,7 +210,7 @@ public class BuildCompatibleExtensionRunner {
     }
 
     private int priorityOf(Method method) {
-        Integer priority = AnnotationExtractors.getPriorityValue(method);
+        Integer priority = getPriorityValue(method);
         return priority != null ? priority : Interceptor.Priority.APPLICATION + 500;
     }
 
@@ -330,10 +325,10 @@ public class BuildCompatibleExtensionRunner {
         if (hasRegistrationAnnotation(method)) {
             phaseAnnotationCount++;
         }
-        if (AnnotationPredicates.hasSynthesisAnnotation(method)) {
+        if (hasSynthesisAnnotation(method)) {
             phaseAnnotationCount++;
         }
-        if (AnnotationPredicates.hasValidationAnnotation(method)) {
+        if (hasValidationAnnotation(method)) {
             phaseAnnotationCount++;
         }
         return phaseAnnotationCount;
@@ -717,8 +712,7 @@ public class BuildCompatibleExtensionRunner {
         List<ObserverInfo> out = new ArrayList<>(BceObserverInfo.from(knowledgeBase.getObserverMethodInfos()));
         out.addAll(BceObserverInfo.fromSynthetic(knowledgeBase.getSyntheticObserverMethods()));
         if (phase == BceSupportedPhase.REGISTRATION) {
-            Registration registration = AnnotationExtractors
-                .getRegistrationAnnotation(phaseMethod);
+            Registration registration = getRegistrationAnnotation(phaseMethod);
             Class<?>[] acceptedTypes = registration != null ? registration.types() : new Class<?>[0];
             if (acceptedTypes.length > 0) {
                 List<ObserverInfo> filtered = new ArrayList<>();

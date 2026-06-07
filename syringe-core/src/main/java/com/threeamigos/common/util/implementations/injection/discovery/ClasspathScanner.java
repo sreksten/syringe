@@ -1,6 +1,6 @@
 package com.threeamigos.common.util.implementations.injection.discovery;
 
-import com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates;
+import com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper;
 
 import java.io.File;
 import java.io.IOException;
@@ -261,7 +261,7 @@ public class ClasspathScanner {
         try {
             String packageInfoClass = packageName + ".package-info";
             Class<?> pkgInfo = Class.forName(packageInfoClass, false, classLoader);
-            return AnnotationPredicates.hasVetoedAnnotation(pkgInfo);
+            return AnnotationsHelper.hasVetoedAnnotation(pkgInfo);
         } catch (ClassNotFoundException e) {
             // No package-info.java exists - package is not vetoed
             return false;

@@ -29,7 +29,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.hasNamedAnnotation;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasNamedAnnotation;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.DECORATED;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.INTERCEPTED;
 

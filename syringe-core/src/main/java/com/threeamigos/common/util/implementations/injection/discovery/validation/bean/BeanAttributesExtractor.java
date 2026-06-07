@@ -9,13 +9,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationExtractors.getNamedAnnotation;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.readNamedValue;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.hasInheritedAnnotation;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.hasNamedAnnotation;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.normalizeSingletonToApplicationScoped;
-import static com.threeamigos.common.util.implementations.injection.annotations.QualifiersHelper.extractQualifierAnnotations;
-import static com.threeamigos.common.util.implementations.injection.annotations.QualifiersHelper.normalizeBeanQualifiers;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
 import static com.threeamigos.common.util.implementations.injection.types.ClassHelper.defaultedBeanName;
 
 /**

@@ -1,8 +1,5 @@
 package com.threeamigos.common.util.implementations.injection.cdi41tests.chapter12.par121buildcompatibleextensioninterface;
 
-import com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates;
-
-import com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum;
 import com.threeamigos.common.util.implementations.injection.Syringe;
 import com.threeamigos.common.util.implementations.injection.discovery.BeanArchiveMode;
 import com.threeamigos.common.util.implementations.injection.discovery.NonPortableBehaviourException;
@@ -44,6 +41,7 @@ import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -84,11 +82,11 @@ public class BuildCompatibleExtensionInterfaceTest {
         Method synthesis = PhaseAnnotatedMethods.class.getDeclaredMethod("onSynthesis", SyntheticComponents.class);
         Method validation = PhaseAnnotatedMethods.class.getDeclaredMethod("onValidation");
 
-        assertTrue(AnnotationPredicates.hasDiscoveryAnnotation(discovery));
-        assertTrue(AnnotationPredicates.hasEnhancementAnnotation(enhancement));
-        assertTrue(AnnotationPredicates.hasRegistrationAnnotation(registration));
-        assertTrue(AnnotationPredicates.hasSynthesisAnnotation(synthesis));
-        assertTrue(AnnotationPredicates.hasValidationAnnotation(validation));
+        assertTrue(hasDiscoveryAnnotation(discovery));
+        assertTrue(hasEnhancementAnnotation(enhancement));
+        assertTrue(hasRegistrationAnnotation(registration));
+        assertTrue(hasSynthesisAnnotation(synthesis));
+        assertTrue(hasValidationAnnotation(validation));
     }
 
     @Test

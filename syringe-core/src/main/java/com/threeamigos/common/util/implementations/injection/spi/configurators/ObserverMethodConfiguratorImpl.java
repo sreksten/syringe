@@ -1,7 +1,5 @@
 package com.threeamigos.common.util.implementations.injection.spi.configurators;
 
-import com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates;
-
 import jakarta.enterprise.event.Observes;
 import jakarta.enterprise.event.ObservesAsync;
 import jakarta.enterprise.event.Reception;
@@ -16,6 +14,8 @@ import java.lang.reflect.Parameter;
 import java.lang.reflect.Type;
 import java.util.HashSet;
 import java.util.Set;
+
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasQualifierAnnotation;
 
 /**
  * Implementation of ObserverMethodConfigurator for building observer methods programmatically.
@@ -170,7 +170,7 @@ public class ObserverMethodConfiguratorImpl<T> implements ObserverMethodConfigur
                 continue;
             }
 
-            if (AnnotationPredicates.hasQualifierAnnotation(annotation.annotationType())) {
+            if (hasQualifierAnnotation(annotation.annotationType())) {
                 resolvedQualifiers.add(annotation);
             }
         }

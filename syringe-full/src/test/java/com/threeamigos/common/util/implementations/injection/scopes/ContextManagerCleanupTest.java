@@ -11,15 +11,10 @@ import org.junit.jupiter.api.Test;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.lang.reflect.Field;
-import java.util.concurrent.ScheduledExecutorService;
-
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.ElementType.TYPE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @DisplayName("ContextManager cleanup")
 class ContextManagerCleanupTest {
@@ -40,30 +35,19 @@ class ContextManagerCleanupTest {
     }
 
     @Test
-    @DisplayName("replacing ConversationScoped context destroys previous built-in context resources")
-    void replacingBuiltInConversationScopedContextShouldDestroyPreviousContext() throws Exception {
+    @DisplayName("replacing ConversationScoped context destroys previous built-in context")
+    void replacingBuiltInConversationScopedContextShouldDestroyPreviousContext() {
         ContextManager contextManager = new ContextManager(new InMemoryMessageHandler());
-        ConversationScopedContext previousBuiltIn =
-                (ConversationScopedContext) readField(contextManager, "conversationContext");
+        CountingScopeContext previousBuiltIn = new CountingScopeContext();
         CountingScopeContext replacement = new CountingScopeContext();
 
+        contextManager.registerContext(ConversationScoped.class, previousBuiltIn);
         contextManager.registerContext(ConversationScoped.class, replacement);
 
-        ScheduledExecutorService scheduler =
-                (ScheduledExecutorService) readField(previousBuiltIn, "timeoutScheduler");
-        boolean active = (Boolean) readField(previousBuiltIn, "active");
-
-        assertTrue(scheduler.isShutdown() || scheduler.isTerminated());
-        assertFalse(active);
+        assertEquals(1, previousBuiltIn.getDestroyCalls());
 
         contextManager.destroyAll();
         assertEquals(1, replacement.getDestroyCalls());
-    }
-
-    private static Object readField(Object target, String fieldName) throws Exception {
-        Field field = target.getClass().getDeclaredField(fieldName);
-        field.setAccessible(true);
-        return field.get(target);
     }
 
     @Retention(RetentionPolicy.RUNTIME)

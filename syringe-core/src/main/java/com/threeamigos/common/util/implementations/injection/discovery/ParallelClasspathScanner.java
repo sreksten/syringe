@@ -1,7 +1,5 @@
 package com.threeamigos.common.util.implementations.injection.discovery;
 
-import com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates;
-
 import com.threeamigos.common.util.implementations.injection.knowledgebase.KnowledgeBase;
 
 import java.io.File;
@@ -12,6 +10,8 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasVetoedAnnotation;
 
 /**
  * Scans the classpath for classes in specified packages.
@@ -378,7 +378,7 @@ public class ParallelClasspathScanner {
         try {
             String packageInfoClass = packageName + ".package-info";
             Class<?> pkgInfo = Class.forName(packageInfoClass, false, classLoader);
-            return AnnotationPredicates.hasVetoedAnnotation(pkgInfo);
+            return hasVetoedAnnotation(pkgInfo);
         } catch (ClassNotFoundException e) {
             // No package-info.java exists - package is not vetoed
             return false;

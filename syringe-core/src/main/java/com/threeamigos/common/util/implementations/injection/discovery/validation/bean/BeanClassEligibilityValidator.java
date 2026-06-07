@@ -1,11 +1,10 @@
 package com.threeamigos.common.util.implementations.injection.discovery.validation.bean;
 
 import com.threeamigos.common.util.implementations.injection.discovery.validation.CDI41BeanValidator;
-import com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates;
 import com.threeamigos.common.util.implementations.injection.discovery.BeanArchiveMode;
 import jakarta.enterprise.inject.spi.Extension;
 
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates.hasVetoedAnnotation;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasVetoedAnnotation;
 
 /**
  * Extracted bean-class eligibility rules for CDI41BeanValidator.

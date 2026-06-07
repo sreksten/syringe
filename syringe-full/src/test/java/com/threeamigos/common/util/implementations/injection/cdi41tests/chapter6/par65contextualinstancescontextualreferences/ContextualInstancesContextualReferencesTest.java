@@ -1,8 +1,5 @@
 package com.threeamigos.common.util.implementations.injection.cdi41tests.chapter6.par65contextualinstancescontextualreferences;
 
-import com.threeamigos.common.util.implementations.injection.annotations.AnnotationPredicates;
-
-import com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum;
 import com.threeamigos.common.util.implementations.injection.Syringe;
 import com.threeamigos.common.util.implementations.injection.discovery.BeanArchiveMode;
 import com.threeamigos.common.util.implementations.injection.spi.BeanManagerImpl;
@@ -44,6 +41,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasActivateRequestContextAnnotation;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -168,7 +166,7 @@ public class ContextualInstancesContextualReferencesTest {
     void shouldActivateAndDeactivateRequestContextViaInterceptorBinding() throws Exception {
         Method activatedMethod = ActivateRequestContextService.class
                 .getDeclaredMethod("invokeInActivatedRequestContext");
-        assertTrue(AnnotationPredicates.hasActivateRequestContextAnnotation(activatedMethod));
+        assertTrue(hasActivateRequestContextAnnotation(activatedMethod));
 
         Syringe syringe = newSyringe(
                 ActivateRequestContextInvoker.class,

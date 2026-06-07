@@ -1,7 +1,5 @@
 package com.threeamigos.common.util.implementations.injection.scopes;
 
-import com.threeamigos.common.util.implementations.injection.annotations.AnnotationExtractors;
-
 import jakarta.enterprise.context.spi.Context;
 import jakarta.enterprise.context.spi.AlterableContext;
 import jakarta.enterprise.context.spi.Contextual;
@@ -10,6 +8,8 @@ import jakarta.enterprise.inject.spi.Bean;
 
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
+
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.getNormalScopePassivatingValue;
 
 /**
  * Adapter that wraps a Jakarta CDI Context to work with our internal ScopeContext interface.
@@ -174,7 +174,7 @@ public class CustomContextAdapter implements ScopeContext {
         if (scope == null) {
             return false;
         }
-        Boolean passivating = AnnotationExtractors.getNormalScopePassivatingValue(scope);
+        Boolean passivating = getNormalScopePassivatingValue(scope);
         return Boolean.TRUE.equals(passivating);
     }
 
