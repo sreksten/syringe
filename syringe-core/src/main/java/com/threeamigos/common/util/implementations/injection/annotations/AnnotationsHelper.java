@@ -3,6 +3,9 @@ package com.threeamigos.common.util.implementations.injection.annotations;
 import com.threeamigos.common.util.implementations.injection.beansxml.BeansXml;
 import com.threeamigos.common.util.implementations.injection.types.TypeClosureHelper;
 import jakarta.annotation.Nonnull;
+import jakarta.enterprise.inject.build.compatible.spi.Enhancement;
+import jakarta.enterprise.inject.build.compatible.spi.Registration;
+import jakarta.enterprise.inject.build.compatible.spi.SkipIfPortableExtensionPresent;
 import jakarta.enterprise.inject.spi.*;
 import jakarta.enterprise.inject.spi.AnnotatedType;
 
@@ -13,7 +16,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.PRIORITY;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.WITH_ANNOTATIONS;
 
@@ -55,13 +57,6 @@ public class AnnotationsHelper {
                         .map(def -> "@" + def.annotationType().getSimpleName())
                         .collect(Collectors.joining(", "))
                  + "]";
-    }
-
-    public static boolean hasAnnotation(AnnotatedElement element, AnnotationsEnum annotation) {
-        if (element == null || annotation == null) {
-            return false;
-        }
-        return hasAnnotation(element.getAnnotations(), annotation);
     }
 
     public static boolean hasAnnotation(Annotation[] annotations, AnnotationsEnum annotation) {
@@ -611,14 +606,6 @@ public class AnnotationsHelper {
         return AnnotationsEnum.PRE_DESTROY.isPresent(element);
     }
 
-    public static boolean hasPrePassivateAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.PRE_PASSIVATE.isPresent(element);
-    }
-
-    public static boolean hasPostActivateAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.POST_ACTIVATE.isPresent(element);
-    }
-
     public static boolean hasPriorityAnnotation(AnnotatedElement element) {
         return AnnotationsEnum.PRIORITY.isPresent(element);
     }
@@ -659,10 +646,6 @@ public class AnnotationsHelper {
         return AnnotationsEnum.SPECIALIZES.isPresent(element);
     }
 
-    public static boolean hasModelAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.MODEL.isPresent(element);
-    }
-
     public static boolean hasNewAnnotation(AnnotatedElement element) {
         return AnnotationsEnum.NEW.isPresent(element);
     }
@@ -696,16 +679,8 @@ public class AnnotationsHelper {
                 || DynamicAnnotationRegistry.hasDynamicInterceptorBinding(element);
     }
 
-    public static boolean hasInterceptorsAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.INTERCEPTORS.isPresent(element);
-    }
-
     public static boolean hasExcludeClassInterceptorsAnnotation(AnnotatedElement element) {
         return AnnotationsEnum.EXCLUDE_CLASS_INTERCEPTORS.isPresent(element);
-    }
-
-    public static boolean hasExcludeDefaultInterceptorsAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.EXCLUDE_DEFAULT_INTERCEPTORS.isPresent(element);
     }
 
     public static boolean hasDependentAnnotation(AnnotatedElement element) {
@@ -747,10 +722,6 @@ public class AnnotationsHelper {
         return AnnotationsEnum.INITIALIZED.isPresent(element);
     }
 
-    public static boolean hasBeforeDestroyedAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.BEFORE_DESTROYED.isPresent(element);
-    }
-
     public static boolean hasDestroyedAnnotation(AnnotatedElement element) {
         return AnnotationsEnum.DESTROYED.isPresent(element);
     }
@@ -761,14 +732,6 @@ public class AnnotationsHelper {
 
     public static boolean hasObservesAsyncAnnotation(AnnotatedElement element) {
         return AnnotationsEnum.OBSERVES_ASYNC.isPresent(element);
-    }
-
-    public static boolean hasStartupAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.STARTUP.isPresent(element);
-    }
-
-    public static boolean hasShutdownAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.SHUTDOWN.isPresent(element);
     }
 
     public static boolean isStartupEventTypeName(String typeName) {
@@ -833,19 +796,6 @@ public class AnnotationsHelper {
         return AnnotationsEnum.VALIDATION.isPresent(element);
     }
 
-    public static boolean hasSkipIfPortableExtensionPresentAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.SKIP_IF_PORTABLE_EXTENSION_PRESENT.isPresent(element);
-    }
-
-    public static boolean hasLookupIfPropertyAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.LOOKUP_IF_PROPERTY.isPresent(element);
-    }
-
-    public static boolean hasLookupUnlessPropertyAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.LOOKUP_UNLESS_PROPERTY.isPresent(element);
-    }
-
-
     public static boolean declaresAlternative(Class<? extends Annotation> stereotypeType) {
         return declaresAlternative(stereotypeType, new HashSet<>());
     }
@@ -873,7 +823,6 @@ public class AnnotationsHelper {
 
         return false;
     }
-
 
     /**
      * Extracts qualifiers from an annotation array, defaulting to @Default when empty.
@@ -993,18 +942,6 @@ public class AnnotationsHelper {
             // Not a repeatable qualifier container annotation; ignore.
         }
         return new Annotation[0];
-    }
-
-    public static boolean isQualifierAnnotation(Annotation annotation) {
-        if (annotation == null) {
-            return false;
-        }
-        Class<? extends Annotation> annotationType = annotation.annotationType();
-        return hasQualifierAnnotation(annotationType) || hasNamedAnnotation(annotationType);
-    }
-
-    public static boolean isAnyQualifier(Annotation annotation) {
-        return annotation != null && hasAnyAnnotation(annotation.annotationType());
     }
 
     /**
@@ -1133,18 +1070,6 @@ public class AnnotationsHelper {
         return AnnotationComparator.equals(q1, q2);
     }
 
-    public static Annotation findAnnotation(Set<Annotation> annotations, Class<? extends Annotation> type) {
-        if (annotations == null) {
-            return null;
-        }
-        for (Annotation ann : annotations) {
-            if (ann.annotationType().equals(type)) {
-                return ann;
-            }
-        }
-        return null;
-    }
-
     public static String getNamedValue(Annotation namedAnnotation) {
         try {
             Method value = namedAnnotation.annotationType().getMethod("value");
@@ -1180,7 +1105,6 @@ public class AnnotationsHelper {
         return null;
     }
 
-
     public static <T extends Annotation> T getTypedAnnotation(AnnotatedElement element) {
         return getFirstAnnotation(element, AnnotationsEnum.TYPED);
     }
@@ -1214,34 +1138,25 @@ public class AnnotationsHelper {
         return element.getAnnotation(java.lang.annotation.Repeatable.class);
     }
 
-    public static <T extends Annotation> T getObservesAnnotation(AnnotatedElement element) {
-        return getFirstAnnotation(element, AnnotationsEnum.OBSERVES);
-    }
-
-    public static <T extends Annotation> T getObservesAsyncAnnotation(AnnotatedElement element) {
-        return getFirstAnnotation(element, AnnotationsEnum.OBSERVES_ASYNC);
-    }
-
-    public static jakarta.enterprise.inject.build.compatible.spi.Registration getRegistrationAnnotation(AnnotatedElement element) {
+    public static Registration getRegistrationAnnotation(AnnotatedElement element) {
         if (element == null) {
             return null;
         }
-        return element.getAnnotation(jakarta.enterprise.inject.build.compatible.spi.Registration.class);
+        return element.getAnnotation(Registration.class);
     }
 
-    public static jakarta.enterprise.inject.build.compatible.spi.Enhancement getEnhancementAnnotation(AnnotatedElement element) {
+    public static Enhancement getEnhancementAnnotation(AnnotatedElement element) {
         if (element == null) {
             return null;
         }
-        return element.getAnnotation(jakarta.enterprise.inject.build.compatible.spi.Enhancement.class);
+        return element.getAnnotation(Enhancement.class);
     }
 
-    public static jakarta.enterprise.inject.build.compatible.spi.SkipIfPortableExtensionPresent
-    getSkipIfPortableExtensionPresentAnnotation(AnnotatedElement element) {
+    public static SkipIfPortableExtensionPresent getSkipIfPortableExtensionPresentAnnotation(AnnotatedElement element) {
         if (element == null) {
             return null;
         }
-        return element.getAnnotation(jakarta.enterprise.inject.build.compatible.spi.SkipIfPortableExtensionPresent.class);
+        return element.getAnnotation(SkipIfPortableExtensionPresent.class);
     }
 
     public static Integer getPriorityValue(AnnotatedElement element) {
