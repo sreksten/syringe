@@ -26,9 +26,9 @@ Usage (single-artifact style):
 
 Syringe relies on these internal dependencies:
 
-- `common-utils-messagehandler`
-- `common-utils-collections`
-- `common-utils-concurrency`
+- [`common-utils-messagehandler`](https://github.com/sreksten/common-utils-messagehandler)
+- [`common-utils-collections`](https://github.com/sreksten/common-utils-collections)
+- [`common-utils-concurrency`](https://github.com/sreksten/common-utils-concurrency)
 
 Usage examples:
 
