@@ -2,7 +2,6 @@ package com.threeamigos.common.util.implementations.injection.knowledgebase;
 
 import com.threeamigos.common.util.implementations.injection.annotations.DynamicAnnotationRegistry;
 
-import com.threeamigos.common.util.implementations.injection.annotations.AlternativesHelper;
 import com.threeamigos.common.util.implementations.injection.annotations.AnnotationComparator;
 import com.threeamigos.common.util.implementations.injection.beansxml.BeansXmlOrderingHelper;
 import com.threeamigos.common.util.implementations.injection.builtinbeans.ActivateRequestContextInterceptor;
@@ -23,7 +22,6 @@ import java.lang.reflect.Constructor;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static com.threeamigos.common.util.implementations.injection.annotations.AlternativesHelper.isAlternativeViaAnnotationOrStereotype;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
 import static com.threeamigos.common.util.implementations.injection.spi.SPIUtils.extractPrioritizedInterfacePriority;
 
@@ -1091,7 +1089,7 @@ public class KnowledgeBase {
      * @return true if the class/stereotype is declared in any beans.xml alternatives section
      */
     public boolean isAlternativeEnabledInBeansXml(String className) {
-        return AlternativesHelper.isAlternativeEnabledInBeansXml(className, discoveryStore.getBeansXmlConfigurations());
+        return AnnotationsHelper.isAlternativeEnabledInBeansXml(className, discoveryStore.getBeansXmlConfigurations());
     }
 
     // ==================== Vetoed Types Management ====================
