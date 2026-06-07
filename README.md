@@ -6,7 +6,7 @@ Part of the common-util classes, designed to help when writing standalone Java a
 
 Syringe provides a lightweight and flexible way to manage dependencies and perform dependency injection in standalone Java applications. It is compatible with the CDI 4.1 specification. It does not support EL.
 
-Syringe supports both `jakarta.inject` and legacy `javax.inject` annotations, and is validated against CDI/TCK-style tests in this repository.
+Syringe supports both `jakarta.inject` and legacy `javax.inject` annotations, and is validated against TCK tests.
 
 Syringe is modular: you can run with a minimal baseline (`syringe-core`) and add only the feature modules you actually use.
 
