@@ -35,7 +35,6 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @DisplayName("Chapter 19 - Interceptors TCK parity")
 class InterceptorsTckParityTest {

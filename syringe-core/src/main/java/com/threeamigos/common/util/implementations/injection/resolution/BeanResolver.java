@@ -16,7 +16,7 @@ import com.threeamigos.common.util.implementations.injection.spi.support.Synthet
 import com.threeamigos.common.util.implementations.injection.spi.support.SyntheticProducerBeanMarker;
 import com.threeamigos.common.util.implementations.injection.annotations.legacy.LegacyNewSupport;
 import com.threeamigos.common.util.implementations.injection.annotations.legacy.NoOpLegacyNewSupport;
-import com.threeamigos.common.util.implementations.injection.types.TypeHelper;
+import com.threeamigos.common.util.implementations.injection.types.TypesHelper;
 import com.threeamigos.common.util.implementations.injection.util.tx.NoOpTransactionServices;
 import com.threeamigos.common.util.implementations.injection.util.tx.TransactionServices;
 import com.threeamigos.common.util.implementations.injection.util.LifecycleMethodHelper;
@@ -45,8 +45,8 @@ import java.util.stream.Collectors;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.*;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
-import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.getRawType;
-import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.normalizePrimitive;
+import static com.threeamigos.common.util.implementations.injection.types.TypesHelper.getRawType;
+import static com.threeamigos.common.util.implementations.injection.types.TypesHelper.normalizePrimitiveType;
 
 /**
  * Resolves dependencies by finding matching beans from the KnowledgeBase.
@@ -66,7 +66,7 @@ public class BeanResolver implements DependencyResolver {
 
     private final KnowledgeBase knowledgeBase;
     private final ContextManager contextManager;
-    private final TypeHelper typeHelper;
+    private final TypesHelper typesHelper;
     private TransactionServices transactionServices;
     private volatile ObserverSupport observerSupport;
     private volatile BeanManagerImpl owningBeanManager;
@@ -84,7 +84,7 @@ public class BeanResolver implements DependencyResolver {
     public BeanResolver(KnowledgeBase knowledgeBase, ContextManager contextManager, TransactionServices transactionServices) {
         this.knowledgeBase = Objects.requireNonNull(knowledgeBase, "knowledgeBase cannot be null");
         this.contextManager = Objects.requireNonNull(contextManager, "contextManager cannot be null");
-        this.typeHelper = new TypeHelper();
+        this.typesHelper = new TypesHelper();
         this.transactionServices = transactionServices == null ? new NoOpTransactionServices() : transactionServices;
         this.decoratorSupport = new NoOpDecoratorSupport();
         this.legacyNewSupport = new NoOpLegacyNewSupport();
@@ -327,7 +327,7 @@ public class BeanResolver implements DependencyResolver {
                 if (notSameRawType(requiredType, beanType)) {
                     continue;
                 }
-                if (typeHelper.isLookupTypeAssignable(requiredType, beanType)) {
+                if (typesHelper.isLookupTypeAssignable(requiredType, beanType)) {
                     typeMatches = true;
                     break;
                 }
@@ -381,7 +381,7 @@ public class BeanResolver implements DependencyResolver {
                 if (notSameRawType(requiredType, beanType)) {
                     continue;
                 }
-                if (typeHelper.isLookupTypeAssignable(requiredType, beanType)) {
+                if (typesHelper.isLookupTypeAssignable(requiredType, beanType)) {
                     typeMatches = true;
                     break;
                 }
@@ -504,8 +504,8 @@ public class BeanResolver implements DependencyResolver {
         Class<?> requiredRaw;
         Class<?> beanRaw;
         try {
-            requiredRaw = normalizePrimitive(getRawType(requiredType));
-            beanRaw = normalizePrimitive(getRawType(beanType));
+            requiredRaw = normalizePrimitiveType(getRawType(requiredType));
+            beanRaw = normalizePrimitiveType(getRawType(beanType));
         } catch (RuntimeException e) {
             return false;
         }

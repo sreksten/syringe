@@ -9,7 +9,7 @@ import com.threeamigos.common.util.implementations.injection.knowledgebase.Knowl
 import com.threeamigos.common.util.implementations.injection.resolution.BeanImpl;
 import com.threeamigos.common.util.implementations.injection.resolution.BeanResolver;
 import com.threeamigos.common.util.implementations.injection.resolution.InstanceImpl;
-import com.threeamigos.common.util.implementations.injection.types.TypeHelper;
+import com.threeamigos.common.util.implementations.injection.types.TypesHelper;
 import com.threeamigos.common.util.implementations.injection.scopes.InjectionPointImpl;
 import com.threeamigos.common.util.implementations.injection.spi.BeanManagerImpl;
 import com.threeamigos.common.util.implementations.injection.annotations.AnnotationComparator;
@@ -65,7 +65,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.*;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
-import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.getRawType;
+import static com.threeamigos.common.util.implementations.injection.types.TypesHelper.getRawType;
 
 /**
  * CDI 4.1 Event implementation for firing synchronous and asynchronous events.
@@ -113,7 +113,7 @@ public class EventImpl<T> implements Event<T>, Serializable {
     private final KnowledgeBase knowledgeBase;
     private final BeanResolver beanResolver;
     private final ContextManager contextManager;
-    private final TypeHelper typeHelper;
+    private final TypesHelper typesHelper;
     private final TransactionServices transactionServices;
     private final ContextTokenProvider tokenProvider;
     private final InjectionPoint firingInjectionPoint;
@@ -184,7 +184,7 @@ public class EventImpl<T> implements Event<T>, Serializable {
         this.knowledgeBase = Objects.requireNonNull(knowledgeBase, "knowledgeBase cannot be null");
         this.beanResolver = Objects.requireNonNull(beanResolver, "beanResolver cannot be null");
         this.contextManager = Objects.requireNonNull(contextManager, "contextManager cannot be null");
-        this.typeHelper = new TypeHelper();
+        this.typesHelper = new TypesHelper();
         this.transactionServices = Objects.requireNonNull(transactionServices, "transactionServices cannot be null");
         this.tokenProvider = new NoopContextTokenProvider();
         this.firingInjectionPoint = null;
@@ -200,7 +200,7 @@ public class EventImpl<T> implements Event<T>, Serializable {
         this.knowledgeBase = Objects.requireNonNull(knowledgeBase, "knowledgeBase cannot be null");
         this.beanResolver = Objects.requireNonNull(beanResolver, "beanResolver cannot be null");
         this.contextManager = Objects.requireNonNull(contextManager, "contextManager cannot be null");
-        this.typeHelper = new TypeHelper();
+        this.typesHelper = new TypesHelper();
         this.transactionServices = Objects.requireNonNull(transactionServices, "transactionServices cannot be null");
         this.tokenProvider = tokenProvider == null ? new NoopContextTokenProvider() : tokenProvider;
         this.firingInjectionPoint = null;
@@ -217,7 +217,7 @@ public class EventImpl<T> implements Event<T>, Serializable {
         this.knowledgeBase = Objects.requireNonNull(knowledgeBase, "knowledgeBase cannot be null");
         this.beanResolver = Objects.requireNonNull(beanResolver, "beanResolver cannot be null");
         this.contextManager = Objects.requireNonNull(contextManager, "contextManager cannot be null");
-        this.typeHelper = new TypeHelper();
+        this.typesHelper = new TypesHelper();
         this.transactionServices = Objects.requireNonNull(transactionServices, "transactionServices cannot be null");
         this.tokenProvider = tokenProvider == null ? new NoopContextTokenProvider() : tokenProvider;
         this.firingInjectionPoint = firingInjectionPoint;
@@ -234,7 +234,7 @@ public class EventImpl<T> implements Event<T>, Serializable {
         this.knowledgeBase = Objects.requireNonNull(knowledgeBase, "knowledgeBase cannot be null");
         this.beanResolver = Objects.requireNonNull(beanResolver, "beanResolver cannot be null");
         this.contextManager = Objects.requireNonNull(contextManager, "contextManager cannot be null");
-        this.typeHelper = new TypeHelper();
+        this.typesHelper = new TypesHelper();
         this.transactionServices = Objects.requireNonNull(transactionServices, "transactionServices cannot be null");
         this.tokenProvider = tokenProvider == null ? new NoopContextTokenProvider() : tokenProvider;
         this.firingInjectionPoint = firingInjectionPoint;
@@ -932,7 +932,7 @@ public class EventImpl<T> implements Event<T>, Serializable {
 
     private boolean isNotMatchingObservedType(Type observedType, Set<Type> eventDispatchTypes) {
         for (Type dispatchType : eventDispatchTypes) {
-            if (typeHelper.isEventTypeAssignable(observedType, dispatchType)) {
+            if (typesHelper.isEventTypeAssignable(observedType, dispatchType)) {
                 return false;
             }
         }

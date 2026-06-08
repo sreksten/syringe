@@ -54,7 +54,7 @@ import static com.threeamigos.common.util.implementations.injection.annotations.
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.getPriorityValue;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasSpecializesAnnotation;
 import static com.threeamigos.common.util.implementations.injection.spi.SPIUtils.isContainerLifecycleObservedType;
-import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.extractRawClass;
+import static com.threeamigos.common.util.implementations.injection.types.TypesHelper.extractRawClass;
 
 /**
  * Full implementation of {@link ObserverSupport} that handles CDI event/observer processing.

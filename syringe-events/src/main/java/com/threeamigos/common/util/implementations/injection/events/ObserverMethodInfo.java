@@ -1,6 +1,6 @@
 package com.threeamigos.common.util.implementations.injection.events;
 
-import com.threeamigos.common.util.implementations.injection.types.TypeHelper;
+import com.threeamigos.common.util.implementations.injection.types.TypesHelper;
 import jakarta.enterprise.event.Reception;
 import jakarta.enterprise.event.TransactionPhase;
 import jakarta.enterprise.inject.spi.Bean;
@@ -33,7 +33,7 @@ import java.util.Set;
  */
 public class ObserverMethodInfo implements ObserverMethodMetadata {
 
-    private static final TypeHelper TYPE_CHECKER = new TypeHelper();
+    private static final TypesHelper TYPE_CHECKER = new TypesHelper();
 
     private final Method observerMethod;           // Null for synthetic observers
     private final Type eventType;                  // The type of event being observed

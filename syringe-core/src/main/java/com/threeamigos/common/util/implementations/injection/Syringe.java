@@ -74,7 +74,7 @@ import java.util.stream.Collectors;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasObservesAnnotation;
 import static com.threeamigos.common.util.implementations.injection.spi.SPIUtils.extractPrioritizedInterfacePriority;
-import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.extractRawClass;
+import static com.threeamigos.common.util.implementations.injection.types.TypesHelper.extractRawClass;
 
 /**
  * Syringe - CDI 4.1 compliant container implementation.
@@ -3476,27 +3476,12 @@ public class Syringe {
         return new NoOpBuildCompatibleExtensionsManager();
     }
 
-    /** Package-private setter for testing the no-op path. */
-    void setExtensionsManager(ExtensionsManager extensionsManager) {
-        this.extensionsManager = extensionsManager;
-    }
-
-    /** Package-private setter for testing the no-op path. */
-    void setBuildCompatibleExtensionsManager(BuildCompatibleExtensionsManager buildCompatibleExtensionsManager) {
-        this.buildCompatibleExtensionsManager = buildCompatibleExtensionsManager;
-    }
-
     private static SpiSupport discoverSpiSupport() {
         Iterator<SpiSupport> it = loadInternalService(SpiSupport.class);
         if (it.hasNext()) {
             return it.next();
         }
         return new NoOpSpiSupport();
-    }
-
-    /** Package-private setter for testing the no-op path. */
-    void setSpiSupport(SpiSupport spiSupport) {
-        beanManager.setSpiSupport(spiSupport);
     }
 
     private static InterceptorSupport discoverInterceptorSupport() {
@@ -3507,24 +3492,12 @@ public class Syringe {
         return new NoOpInterceptorSupport();
     }
 
-    /** Package-private setter for testing the no-op path. */
-    void setInterceptorSupport(InterceptorSupport interceptorSupport) {
-        this.interceptorSupport = interceptorSupport;
-        beanManager.setInterceptorSupport(interceptorSupport);
-    }
-
     private static DecoratorSupport discoverDecoratorSupport() {
         Iterator<DecoratorSupport> it = loadInternalService(DecoratorSupport.class);
         if (it.hasNext()) {
             return it.next();
         }
         return new NoOpDecoratorSupport();
-    }
-
-    /** Package-private setter for testing the no-op path. */
-    void setDecoratorSupport(DecoratorSupport decoratorSupport) {
-        this.decoratorSupport = decoratorSupport;
-        beanManager.setDecoratorSupport(decoratorSupport);
     }
 
     private static LegacyNewSupport discoverLegacyNewSupport() {
@@ -3535,12 +3508,6 @@ public class Syringe {
         return new NoOpLegacyNewSupport();
     }
 
-    /** Package-private setter for testing the no-op path. */
-    void setLegacyNewSupport(LegacyNewSupport legacyNewSupport) {
-        this.legacyNewSupport = legacyNewSupport;
-        beanManager.setLegacyNewSupport(legacyNewSupport);
-    }
-
     private static SeSupport discoverSeSupport() {
         Iterator<SeSupport> it = loadInternalService(SeSupport.class);
         if (it.hasNext()) {
@@ -3549,26 +3516,12 @@ public class Syringe {
         return new NoOpSeSupport();
     }
 
-    /** Package-private setter for testing the no-op path. */
-    void setSeSupport(SeSupport seSupport) {
-        this.seSupport = seSupport;
-    }
-
     private static ObserverSupport discoverObserverSupport() {
         Iterator<ObserverSupport> it = loadInternalService(ObserverSupport.class);
         if (it.hasNext()) {
             return it.next();
         }
         return new NoOpObserverSupport();
-    }
-
-    /** Package-private setter for testing the no-op path. */
-    void setObserverSupport(ObserverSupport observerSupport) {
-        this.observerSupport = observerSupport;
-        beanManager.setObserverSupport(observerSupport);
-        if (scopeSupport != null) {
-            scopeSupport.setObserverSupport(observerSupport);
-        }
     }
 
     private static ScopeSupport discoverScopeSupport() {
@@ -3595,18 +3548,6 @@ public class Syringe {
             }
         }
         return Collections.<T>emptyList().iterator();
-    }
-
-    /** Package-private setter for testing the no-op path. */
-    void setScopeSupport(ScopeSupport scopeSupport) {
-        this.scopeSupport = scopeSupport != null ? scopeSupport : new NoOpScopeSupport();
-        this.scopeSupport.setMessageHandler(messageHandler);
-        this.scopeSupport.setKnowledgeBase(knowledgeBase);
-        this.scopeSupport.setBeanManager(beanManager);
-        this.scopeSupport.setObserverSupport(observerSupport);
-        contextManager.setScopeSupport(this.scopeSupport);
-        this.scopeSupport.registerNormalScopes(contextManager);
-        beanManager.setScopeSupport(this.scopeSupport);
     }
 
 }

@@ -2,7 +2,6 @@ package com.threeamigos.common.util.implementations.injection.scopes;
 
 import com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum;
 import com.threeamigos.common.util.implementations.injection.resolution.BeanImpl;
-import com.threeamigos.common.util.implementations.injection.util.LifecycleMethodHelper;
 import com.threeamigos.common.util.interfaces.messagehandler.MessageHandler;
 import jakarta.enterprise.context.ContextNotActiveException;
 import jakarta.enterprise.context.spi.Contextual;

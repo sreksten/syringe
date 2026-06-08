@@ -30,7 +30,7 @@ import static com.threeamigos.common.util.implementations.injection.annotations.
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasDependentAnnotation;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasDecoratorAnnotation;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasInterceptorAnnotation;
-import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.getRawType;
+import static com.threeamigos.common.util.implementations.injection.types.TypesHelper.getRawType;
 
 /**
  * ProcessManagedBean event implementation.

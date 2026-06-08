@@ -20,7 +20,7 @@ import java.util.Set;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.getTypedAnnotation;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasTypedAnnotation;
-import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.getRawType;
+import static com.threeamigos.common.util.implementations.injection.types.TypesHelper.getRawType;
 
 /**
  * Extracts bean type sets for managed beans and producers.

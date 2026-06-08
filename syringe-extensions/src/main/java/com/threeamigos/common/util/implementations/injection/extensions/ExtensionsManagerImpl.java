@@ -20,7 +20,7 @@ import java.util.*;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
 import static com.threeamigos.common.util.implementations.injection.spi.SPIUtils.isBeforeShutdownLifecycleEvent;
-import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.extractRawClass;
+import static com.threeamigos.common.util.implementations.injection.types.TypesHelper.extractRawClass;
 
 /**
  *

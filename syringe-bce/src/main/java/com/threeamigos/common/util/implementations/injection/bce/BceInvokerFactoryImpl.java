@@ -2,7 +2,6 @@ package com.threeamigos.common.util.implementations.injection.bce;
 
 import com.threeamigos.common.util.implementations.injection.knowledgebase.KnowledgeBase;
 import com.threeamigos.common.util.implementations.injection.resolution.BeanImpl;
-import com.threeamigos.common.util.implementations.injection.spi.BeanManagerImpl;
 import com.threeamigos.common.util.implementations.injection.spi.spievents.ProcessManagedBeanImpl;
 import com.threeamigos.common.util.implementations.injection.spi.wrappers.AnnotatedMethodWrapper;
 import com.threeamigos.common.util.interfaces.messagehandler.MessageHandler;

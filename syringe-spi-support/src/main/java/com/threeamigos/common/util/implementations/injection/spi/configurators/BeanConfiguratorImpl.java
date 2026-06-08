@@ -18,7 +18,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
-import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.getRawType;
+import static com.threeamigos.common.util.implementations.injection.types.TypesHelper.getRawType;
 
 /**
  * Implementation of BeanConfigurator for building synthetic beans programmatically.

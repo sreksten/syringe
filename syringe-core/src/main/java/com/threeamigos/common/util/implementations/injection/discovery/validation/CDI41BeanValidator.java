@@ -9,7 +9,7 @@ import com.threeamigos.common.util.implementations.injection.knowledgebase.Scope
 import com.threeamigos.common.util.implementations.injection.scopes.InjectionPointImpl;
 import com.threeamigos.common.util.implementations.injection.resolution.BeanImpl;
 import com.threeamigos.common.util.implementations.injection.resolution.ProducerBean;
-import com.threeamigos.common.util.implementations.injection.types.TypeHelper;
+import com.threeamigos.common.util.implementations.injection.types.TypesHelper;
 import jakarta.enterprise.inject.spi.Bean;
 import jakarta.enterprise.inject.spi.Annotated;
 import jakarta.enterprise.inject.spi.DefinitionException;
@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.*;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
-import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.*;
+import static com.threeamigos.common.util.implementations.injection.types.TypesHelper.*;
 import static com.threeamigos.common.util.implementations.injection.types.TypeClosureHelper.parameterizedDeclarationOf;
 
 /**
@@ -53,7 +53,7 @@ public class CDI41BeanValidator {
 
     private final KnowledgeBase knowledgeBase;
     private final BeanTypesExtractor beanTypesExtractor;
-    private final TypeHelper typeHelper;
+    private final TypesHelper typesHelper;
     private final StereotypePriorityValidator stereotypePriorityValidator;
     private final BeanClassEligibilityValidator beanClassEligibilityValidator;
     private final BeanAttributesExtractor beanAttributesExtractor;
@@ -77,7 +77,7 @@ public class CDI41BeanValidator {
     public CDI41BeanValidator(KnowledgeBase knowledgeBase, boolean cdiFullLegacyInterceptionEnabled) {
         this.knowledgeBase = Objects.requireNonNull(knowledgeBase, "knowledgeBase cannot be null");
         this.beanTypesExtractor = new BeanTypesExtractor();
-        this.typeHelper = new TypeHelper();
+        this.typesHelper = new TypesHelper();
         this.stereotypePriorityValidator = new StereotypePriorityValidator(this::isScopeAnnotationType);
         this.beanClassEligibilityValidator = new BeanClassEligibilityValidator(this);
         this.beanAttributesExtractor = new BeanAttributesExtractor(knowledgeBase, this);
@@ -85,7 +85,7 @@ public class CDI41BeanValidator {
         this.injectionMetadataValidator = new InjectionMetadataValidator(knowledgeBase, this);
         this.producerDisposerValidator = new ProducerDisposerValidator(
                 knowledgeBase,
-                typeHelper,
+                typesHelper,
                 this,
                 specializingProducerMethodsBySpecializedSignature);
         this.beanRegistrationService = new BeanRegistrationService(
@@ -882,17 +882,6 @@ public class CDI41BeanValidator {
         return beanAttributesExtractor.extractScopeFromStereotype(stereotypeClass);
     }
 
-    private String readNamedValue(Annotation namedAnnotation) {
-        try {
-            Method value = namedAnnotation.annotationType().getMethod("value");
-            Object raw = value.invoke(namedAnnotation);
-            return raw == null ? "" : raw.toString();
-        } catch (ReflectiveOperationException ignored) {
-            return "";
-        }
-    }
-
-
     // -----------------------
     // Validation: constructors
     // -----------------------
@@ -1660,22 +1649,6 @@ public class CDI41BeanValidator {
      */
     public boolean isNotValidNamedInjectionPointUsage(AnnotatedElement injectionPoint) {
         return injectionMetadataValidator.isNotValidNamedInjectionPointUsage(injectionPoint);
-    }
-
-    private String describeInjectionPoint(AnnotatedElement injectionPoint) {
-        if (injectionPoint instanceof Parameter) {
-            return fmtParameter((Parameter) injectionPoint);
-        }
-        if (injectionPoint instanceof Field) {
-            return fmtField((Field) injectionPoint);
-        }
-        if (injectionPoint instanceof Method) {
-            return fmtMethod((Method) injectionPoint);
-        }
-        if (injectionPoint instanceof Constructor) {
-            return fmtConstructor((Constructor<?>) injectionPoint);
-        }
-        return injectionPoint.toString();
     }
 
     public boolean isQualifierAnnotationType(Class<? extends Annotation> at) {

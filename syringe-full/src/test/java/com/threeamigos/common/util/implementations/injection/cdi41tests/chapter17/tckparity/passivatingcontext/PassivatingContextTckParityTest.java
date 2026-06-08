@@ -8,7 +8,6 @@ import jakarta.enterprise.context.SessionScoped;
 import jakarta.enterprise.inject.IllegalProductException;
 import jakarta.enterprise.inject.Instance;
 import jakarta.enterprise.inject.Vetoed;
-import jakarta.enterprise.inject.spi.DeploymentException;
 import jakarta.enterprise.inject.spi.Bean;
 import jakarta.enterprise.inject.spi.BeanManager;
 import jakarta.inject.Inject;

@@ -15,7 +15,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.getRawType;
+import static com.threeamigos.common.util.implementations.injection.types.TypesHelper.getRawType;
 
 /**
  * Shared helpers for extracting unrestricted type closures used by CDI components.

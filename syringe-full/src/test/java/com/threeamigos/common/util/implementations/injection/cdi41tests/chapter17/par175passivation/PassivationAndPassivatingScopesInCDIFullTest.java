@@ -3,7 +3,6 @@ package com.threeamigos.common.util.implementations.injection.cdi41tests.chapter
 import com.threeamigos.common.util.implementations.injection.Syringe;
 import com.threeamigos.common.util.implementations.injection.discovery.BeanArchiveMode;
 import com.threeamigos.common.util.implementations.injection.spi.BeanManagerImpl;
-import com.threeamigos.common.util.implementations.injection.scopes.SessionScopedContext;
 import com.threeamigos.common.util.implementations.messagehandler.InMemoryMessageHandler;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.context.ConversationScoped;

@@ -30,7 +30,7 @@ import java.util.Objects;
 import java.util.Set;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasInterceptorBindingAnnotation;
-import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.getRawType;
+import static com.threeamigos.common.util.implementations.injection.types.TypesHelper.getRawType;
 
 /**
  * Extracted interceptor/decorator definition validation and registration rules.

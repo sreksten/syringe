@@ -28,7 +28,7 @@ import com.threeamigos.common.util.implementations.injection.spi.support.SpiSupp
 import com.threeamigos.common.util.implementations.injection.spi.support.SyntheticBeanPriority;
 import com.threeamigos.common.util.implementations.injection.spi.support.SyntheticProducerBeanMarker;
 import com.threeamigos.common.util.implementations.injection.spi.spievents.SimpleAnnotatedType;
-import com.threeamigos.common.util.implementations.injection.types.TypeHelper;
+import com.threeamigos.common.util.implementations.injection.types.TypesHelper;
 import com.threeamigos.common.util.implementations.injection.util.LifecycleMethodHelper;
 import com.threeamigos.common.util.implementations.injection.types.TypeClosureHelper;
 import com.threeamigos.common.util.implementations.injection.util.tx.TransactionServicesFactory;
@@ -67,7 +67,7 @@ import java.util.stream.Collectors;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.*;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
-import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.getRawType;
+import static com.threeamigos.common.util.implementations.injection.types.TypesHelper.getRawType;
 
 /**
  * Implementation of the CDI 4.1 BeanManager interface.
@@ -117,7 +117,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
     private final KnowledgeBase knowledgeBase;
     private final BeanResolver beanResolver;
     private final ContextManager contextManager;
-    private final TypeHelper typeHelper;
+    private final TypesHelper typesHelper;
     private final List<Extension> registeredExtensions;
     private final String beanManagerId;
     private final ClassLoader registrationClassLoader;
@@ -146,7 +146,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
         this.beanResolver = new BeanResolver(knowledgeBase, contextManager, TransactionServicesFactory.create());
         this.beanManagerId = UUID.randomUUID().toString();
         this.beanResolver.setOwningBeanManager(this);
-        this.typeHelper = new TypeHelper();
+        this.typesHelper = new TypesHelper();
         this.registeredExtensions = new ArrayList<>();
         this.requireActiveContextForGetContext = false;
         this.observerSupport = new NoOpObserverSupport();
@@ -452,7 +452,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
                 if (notSameRawType(requestedType, beanType)) {
                     continue;
                 }
-                if (typeHelper.isAssignable(requestedType, beanType)) {
+                if (typesHelper.isAssignable(requestedType, beanType)) {
                     return true;
                 }
             } catch (RuntimeException ignored) {
@@ -664,7 +664,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
                 if (notSameRawType(beanType, type)) {
                     continue;
                 }
-                if (typeHelper.isLookupTypeAssignable(beanType, type)) {
+                if (typesHelper.isLookupTypeAssignable(beanType, type)) {
                     typeMatches = true;
                     break;
                 }
@@ -788,7 +788,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
                 if (notSameRawType(beanType, type)) {
                     continue;
                 }
-                if (typeHelper.isLookupTypeAssignable(beanType, type)) {
+                if (typesHelper.isLookupTypeAssignable(beanType, type)) {
                     typeMatches = true;
                     break;
                 }
@@ -1361,7 +1361,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
 
         for (ObserverMethodMetadata observerInfo : knowledgeBase.getObserverMethodInfos()) {
             // Check type compatibility
-            if (!typeHelper.isEventTypeAssignable(observerInfo.getEventType(), eventType)) {
+            if (!typesHelper.isEventTypeAssignable(observerInfo.getEventType(), eventType)) {
                 continue;
             }
 
@@ -1376,7 +1376,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
             if (syntheticObserver == null) {
                 continue;
             }
-            if (!typeHelper.isEventTypeAssignable(syntheticObserver.getObservedType(), eventType)) {
+            if (!typesHelper.isEventTypeAssignable(syntheticObserver.getObservedType(), eventType)) {
                 continue;
             }
 
@@ -2110,7 +2110,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
             if (notSameRawType(requiredType, beanType)) {
                 continue;
             }
-            if (typeHelper.isAssignable(requiredType, beanType)) {
+            if (typesHelper.isAssignable(requiredType, beanType)) {
                 typeMatches = true;
                 break;
             }
@@ -2172,7 +2172,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
         validateQualifierSet(observedQualifiers, "observedQualifiers");
 
         // Check type compatibility
-        if (!typeHelper.isEventTypeAssignable(observedType, eventType)) {
+        if (!typesHelper.isEventTypeAssignable(observedType, eventType)) {
             return false;
         }
 
@@ -2587,7 +2587,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
                     if (isObjectType(requestedType)) {
                         continue;
                     }
-                    if (typeHelper.isLookupTypeAssignable(requestedType, decoratedType)) {
+                    if (typesHelper.isLookupTypeAssignable(requestedType, decoratedType)) {
                         return true;
                     }
                 }
@@ -2599,7 +2599,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
                 if (isObjectType(requestedType)) {
                     continue;
                 }
-                if (typeHelper.isLookupTypeAssignable(requestedType, delegateType)) {
+                if (typesHelper.isLookupTypeAssignable(requestedType, delegateType)) {
                     return true;
                 }
             }

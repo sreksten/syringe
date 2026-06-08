@@ -1,6 +1,6 @@
 package com.threeamigos.common.util.implementations.injection;
 
-import com.threeamigos.common.util.implementations.injection.types.TypeHelper;
+import com.threeamigos.common.util.implementations.injection.types.TypesHelper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -11,19 +11,18 @@ import java.io.Serializable;
 import java.lang.reflect.*;
 import java.util.*;
 
-import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.getRawType;
+import static com.threeamigos.common.util.implementations.injection.types.TypesHelper.getRawType;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
 
 /**
  * Comprehensive unit tests for TypeChecker class covering 100% code coverage.
  * Tests focus on JSR 330/346 compliance for injection point validation and type assignability.
  */
-class TypeHelperClaudeUnitTest {
+class TypesHelperClaudeUnitTest {
 
     interface Provider<T> {}
 
-    private final TypeHelper sut = new TypeHelper();
+    private final TypesHelper sut = new TypesHelper();
 
     @Nested
     @DisplayName("validateInjectionPoint - JSR 330/346 Compliance Tests")
@@ -207,7 +206,7 @@ class TypeHelperClaudeUnitTest {
         @Test
         @DisplayName("Should cache resolved types")
         void testCacheResolvedTypes() {
-            TypeHelper checker = new TypeHelper();
+            TypesHelper checker = new TypesHelper();
             assertTrue(checker.isAssignable(String.class, String.class));
             // second call should hit cache silently (cannot verify without Mockito here)
             assertTrue(checker.isAssignable(String.class, String.class));
@@ -2709,7 +2708,7 @@ class TypeHelperClaudeUnitTest {
     @DisplayName("getRawType should return the bound when input is a TypeVariable")
     @SuppressWarnings("unused")
     <T extends Number> void shouldReturnBoundWhenInputIsTypeVariable() throws NoSuchMethodException {
-        Method method = TypeHelperClaudeUnitTest.class.getDeclaredMethod("shouldReturnBoundWhenInputIsTypeVariable");
+        Method method = TypesHelperClaudeUnitTest.class.getDeclaredMethod("shouldReturnBoundWhenInputIsTypeVariable");
         TypeVariable<?> typeVariable = method.getTypeParameters()[0];
 
         assertEquals(Number.class, getRawType(typeVariable));

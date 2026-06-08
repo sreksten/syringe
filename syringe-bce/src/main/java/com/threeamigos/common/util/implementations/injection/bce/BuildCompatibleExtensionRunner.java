@@ -2,7 +2,6 @@ package com.threeamigos.common.util.implementations.injection.bce;
 
 import com.threeamigos.common.util.implementations.injection.discovery.NonPortableBehaviourException;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.KnowledgeBase;
-import com.threeamigos.common.util.implementations.injection.spi.BeanManagerImpl;
 import com.threeamigos.common.util.interfaces.messagehandler.MessageHandler;
 import jakarta.annotation.Nonnull;
 import jakarta.enterprise.inject.build.compatible.spi.BuildCompatibleExtension;

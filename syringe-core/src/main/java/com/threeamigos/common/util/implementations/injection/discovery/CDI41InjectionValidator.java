@@ -8,7 +8,7 @@ import com.threeamigos.common.util.implementations.injection.annotations.legacy.
 import com.threeamigos.common.util.implementations.injection.annotations.legacy.NoOpLegacyNewSupport;
 import com.threeamigos.common.util.implementations.injection.resolution.BeanImpl;
 import com.threeamigos.common.util.implementations.injection.resolution.ProducerBean;
-import com.threeamigos.common.util.implementations.injection.types.TypeHelper;
+import com.threeamigos.common.util.implementations.injection.types.TypesHelper;
 import com.threeamigos.common.util.implementations.injection.scopes.InjectionPointImpl;
 import com.threeamigos.common.util.implementations.injection.annotations.AnnotationComparator;
 import com.threeamigos.common.util.implementations.injection.spi.support.SyntheticBeanMarker;
@@ -33,7 +33,8 @@ import java.lang.annotation.Annotation;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.*;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
-import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.getRawType;
+import static com.threeamigos.common.util.implementations.injection.types.TypesHelper.getRawType;
+import static com.threeamigos.common.util.implementations.injection.types.TypesHelper.normalizePrimitiveType;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -70,14 +71,14 @@ import java.util.stream.Collectors;
  *
  * <p>Uses existing utilities:
  * <ul>
- *   <li>{@link TypeHelper} - for proper type hierarchy and generic matching</li>
+ *   <li>{@link TypesHelper} - for proper type hierarchy and generic matching</li>
  *   <li>{@link RawTypeExtractor} - for extracting raw types from generic types</li>
  * </ul>
  */
 public class CDI41InjectionValidator {
 
     private final KnowledgeBase knowledgeBase;
-    private final TypeHelper typeHelper;
+    private final TypesHelper typesHelper;
     private final LegacyNewSupport legacyNewSupport;
     private final boolean allowNonPortableAsyncObserverEventParameterPriority;
 
@@ -105,7 +106,7 @@ public class CDI41InjectionValidator {
                                    LegacyNewSupport legacyNewSupport,
                                    boolean allowNonPortableAsyncObserverEventParameterPriority) {
         this.knowledgeBase = Objects.requireNonNull(knowledgeBase, "knowledgeBase cannot be null");
-        this.typeHelper = new TypeHelper();
+        this.typesHelper = new TypesHelper();
         this.legacyNewSupport = legacyNewSupport != null
                 ? legacyNewSupport
                 : new NoOpLegacyNewSupport();
@@ -1769,7 +1770,7 @@ public class CDI41InjectionValidator {
         for (Type decoratedType : decoratedTypes) {
             for (Type beanType : beanTypes) {
                 try {
-                    if (typeHelper.isAssignable(decoratedType, beanType)) {
+                    if (typesHelper.isAssignable(decoratedType, beanType)) {
                         return true;
                     }
                 } catch (DefinitionException ex) {
@@ -2078,7 +2079,7 @@ public class CDI41InjectionValidator {
      *   <li>Checking producer methods (methods annotated with @Produces)</li>
      * </ol>
      *
-     * <p><b>Type Matching:</b> Uses {@link TypeHelper} for proper generic type matching.
+     * <p><b>Type Matching:</b> Uses {@link TypesHelper} for proper generic type matching.
      * For example:
      * <pre>
      * // Injection point
@@ -2270,7 +2271,7 @@ public class CDI41InjectionValidator {
                     continue;
                 }
                 // Use TypeChecker for proper type matching with generic support
-                if (typeHelper.isLookupTypeAssignable(requiredType, beanType)) {
+                if (typesHelper.isLookupTypeAssignable(requiredType, beanType)) {
                     return true;
                 }
             } catch (Exception e) {
@@ -2302,22 +2303,6 @@ public class CDI41InjectionValidator {
             return true;
         }
         return requiredRaw.equals(beanRaw);
-    }
-
-    private Class<?> normalizePrimitiveType(Class<?> type) {
-        if (type == null || !type.isPrimitive()) {
-            return type;
-        }
-        if (type == int.class) return Integer.class;
-        if (type == long.class) return Long.class;
-        if (type == double.class) return Double.class;
-        if (type == float.class) return Float.class;
-        if (type == boolean.class) return Boolean.class;
-        if (type == char.class) return Character.class;
-        if (type == byte.class) return Byte.class;
-        if (type == short.class) return Short.class;
-        if (type == void.class) return Void.class;
-        return type;
     }
 
     /**

@@ -72,7 +72,7 @@ import java.util.Objects;
  * @see ParameterizedType
  * @see GenericArrayType
  */
-public class TypeHelper {
+public class TypesHelper {
 
     /**
      * A cache for storing the results of type assignability checks.
@@ -171,8 +171,8 @@ public class TypeHelper {
         // CDI observer resolution allows a parameterized event type to match a raw observed type
         // when raw types are assignable (e.g., observe Box, fire Box<Integer, String, Random>).
         if (observedEventType instanceof Class<?> && eventType instanceof ParameterizedType) {
-            Class<?> observedRaw = normalizePrimitive((Class<?>) observedEventType);
-            Class<?> eventRaw = normalizePrimitive(getRawType(eventType));
+            Class<?> observedRaw = normalizePrimitiveType((Class<?>) observedEventType);
+            Class<?> eventRaw = normalizePrimitiveType(getRawType(eventType));
             if (observedRaw.isAssignableFrom(eventRaw)) {
                 return true;
             }
@@ -238,8 +238,8 @@ public class TypeHelper {
 
         Class<?> targetRaw = getRawType(targetType);
         Class<?> implementationRaw = getRawType(implementationType);
-        Class<?> normalizedTargetRaw = normalizePrimitive(targetRaw);
-        Class<?> normalizedImplementationRaw = normalizePrimitive(implementationRaw);
+        Class<?> normalizedTargetRaw = normalizePrimitiveType(targetRaw);
+        Class<?> normalizedImplementationRaw = normalizePrimitiveType(implementationRaw);
 
         if (!normalizedTargetRaw.isAssignableFrom(normalizedImplementationRaw)) {
             return false;
@@ -367,7 +367,7 @@ public class TypeHelper {
         return false;
     }
 
-    public static Class<?> normalizePrimitive(Class<?> type) {
+    public static Class<?> normalizePrimitiveType(Class<?> type) {
         if (type == null || !type.isPrimitive()) {
             return type;
         }
@@ -730,8 +730,8 @@ public class TypeHelper {
             return false;
         }
 
-        Class<?> leftRaw = normalizePrimitive(getRawType(left));
-        Class<?> rightRaw = normalizePrimitive(getRawType(right));
+        Class<?> leftRaw = normalizePrimitiveType(getRawType(left));
+        Class<?> rightRaw = normalizePrimitiveType(getRawType(right));
         if (leftRaw.isAssignableFrom(rightRaw) || rightRaw.isAssignableFrom(leftRaw)) {
             return true;
         }
@@ -758,8 +758,8 @@ public class TypeHelper {
             return false;
         }
 
-        Class<?> candidateRaw = normalizePrimitive(getRawType(candidate));
-        Class<?> superRaw = normalizePrimitive(getRawType(superType));
+        Class<?> candidateRaw = normalizePrimitiveType(getRawType(candidate));
+        Class<?> superRaw = normalizePrimitiveType(getRawType(superType));
         return superRaw.isAssignableFrom(candidateRaw);
     }
 

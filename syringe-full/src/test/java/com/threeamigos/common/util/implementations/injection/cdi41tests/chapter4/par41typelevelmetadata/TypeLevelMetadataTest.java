@@ -11,7 +11,6 @@ import com.threeamigos.common.util.implementations.injection.cdi41tests.chapter4
 import com.threeamigos.common.util.implementations.injection.cdi41tests.chapter4.par41typelevelmetadata.bullet3.InheritedBindingChildBean;
 import com.threeamigos.common.util.implementations.injection.cdi41tests.chapter4.par41typelevelmetadata.bullet3.MiddleTraceInterceptor;
 import com.threeamigos.common.util.implementations.injection.cdi41tests.chapter4.par41typelevelmetadata.bullet3.NonInheritedBindingChildBean;
-import com.threeamigos.common.util.implementations.injection.cdi41tests.chapter4.par41typelevelmetadata.bullet3.NonInheritedTraceInterceptor;
 import com.threeamigos.common.util.implementations.injection.cdi41tests.chapter4.par41typelevelmetadata.bullet3.RootTraceInterceptor;
 import com.threeamigos.common.util.implementations.injection.cdi41tests.chapter4.par41typelevelmetadata.bullet4.ScopedChildBean;
 import com.threeamigos.common.util.implementations.injection.cdi41tests.chapter4.par41typelevelmetadata.bullet4.ScopedGrandChildBean;

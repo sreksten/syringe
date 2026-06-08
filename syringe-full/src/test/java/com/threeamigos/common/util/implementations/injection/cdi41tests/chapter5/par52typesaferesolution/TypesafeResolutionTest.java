@@ -35,7 +35,6 @@ import com.threeamigos.common.util.implementations.injection.cdi41tests.chapter5
 import com.threeamigos.common.util.implementations.injection.cdi41tests.chapter5.par52typesaferesolution.unresolvablebean.UnresolvableInterface;
 import com.threeamigos.common.util.implementations.injection.discovery.BeanArchiveMode;
 import com.threeamigos.common.util.implementations.injection.discovery.NonPortableBehaviourException;
-import com.threeamigos.common.util.implementations.messagehandler.ConsoleMessageHandler;
 import com.threeamigos.common.util.implementations.messagehandler.InMemoryMessageHandler;
 import jakarta.enterprise.context.spi.CreationalContext;
 import jakarta.enterprise.inject.spi.DefinitionException;
