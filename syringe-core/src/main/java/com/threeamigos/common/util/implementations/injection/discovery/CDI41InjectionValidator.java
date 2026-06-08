@@ -2840,7 +2840,7 @@ public class CDI41InjectionValidator {
         for (int i = 0; i < reflectionParameters.length; i++) {
             Parameter parameter = reflectionParameters[i];
             AnnotatedParameter<?> annotatedParameter = annotatedMethod != null
-                    ? annotatedParameterAt(annotatedMethod, i)
+                    ? findAnnotatedParameter(annotatedMethod, i)
                     : null;
             if (annotatedParameter == null && annotatedTypeOverride != null) {
                 annotatedParameter = findAnnotatedParameter(annotatedTypeOverride, parameter);
@@ -2855,18 +2855,6 @@ public class CDI41InjectionValidator {
             result.add(new ObserverParameterMetadata(parameter, annotatedParameter, baseType, annotations, i));
         }
         return result;
-    }
-
-    private AnnotatedParameter<?> annotatedParameterAt(AnnotatedMethod<?> method, int position) {
-        if (method == null) {
-            return null;
-        }
-        for (AnnotatedParameter<?> parameter : method.getParameters()) {
-            if (parameter.getPosition() == position) {
-                return parameter;
-            }
-        }
-        return null;
     }
 
     private boolean hasObservesAnnotationIn(Annotation[] annotations) {

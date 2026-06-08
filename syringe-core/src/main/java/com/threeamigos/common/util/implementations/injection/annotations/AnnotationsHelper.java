@@ -20,6 +20,7 @@ import java.util.stream.Stream;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.PRIORITY;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.WITH_ANNOTATIONS;
 import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.extractTypesFromType;
+import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.isSameRawType;
 
 public class AnnotationsHelper {
 
@@ -502,6 +503,23 @@ public class AnnotationsHelper {
         for (AnnotatedConstructor<?> annotatedConstructor : annotatedType.getConstructors()) {
             if (matchesMember(annotatedConstructor.getJavaMember(), constructor)) {
                 return annotatedConstructor;
+            }
+        }
+        return null;
+    }
+
+    public static AnnotatedParameter<?> findAnnotatedDisposedParameter(AnnotatedType<?> annotatedType, Type producedType) {
+        if (annotatedType == null || producedType == null) {
+            return null;
+        }
+        for (AnnotatedMethod<?> method : annotatedType.getMethods()) {
+            for (AnnotatedParameter<?> parameter : method.getParameters()) {
+                if (!hasDisposesAnnotationInAnnotatedParameter(parameter)) {
+                    continue;
+                }
+                if (isSameRawType(parameter.getBaseType(), producedType)) {
+                    return parameter;
+                }
             }
         }
         return null;

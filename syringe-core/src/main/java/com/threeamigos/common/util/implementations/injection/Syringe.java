@@ -1981,47 +1981,6 @@ public class Syringe {
         applyDeferredProducerReplacements();
     }
 
-    /**
-     * Finds the AnnotatedMethod matching the given Method.
-     */
-    private AnnotatedMethod<?> findAnnotatedMethod(AnnotatedType<?> annotatedType, Method method) {
-        for (AnnotatedMethod<?> am : annotatedType.getMethods()) {
-            if (am.getJavaMember().equals(method)) {
-                return am;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Finds the AnnotatedField matching the given Field.
-     */
-    private AnnotatedField<?> findAnnotatedField(AnnotatedType<?> annotatedType, Field field) {
-        for (AnnotatedField<?> af : annotatedType.getFields()) {
-            if (af.getJavaMember().equals(field)) {
-                return af;
-            }
-        }
-        return null;
-    }
-
-    private AnnotatedParameter<?> findAnnotatedDisposedParameter(AnnotatedType<?> annotatedType, Type producedType) {
-        if (annotatedType == null || producedType == null) {
-            return null;
-        }
-        for (AnnotatedMethod<?> method : annotatedType.getMethods()) {
-            for (AnnotatedParameter<?> parameter : method.getParameters()) {
-                if (!hasDisposesAnnotationInAnnotatedParameter(parameter)) {
-                    continue;
-                }
-                if (isSameRawType(parameter.getBaseType(), producedType)) {
-                    return parameter;
-                }
-            }
-        }
-        return null;
-    }
-
     @SuppressWarnings({"rawtypes", "unchecked"})
     private Producer resolveEffectiveProducerForLifecycleEvent(ProducerBean<?> producerBean) {
         Producer<?> producer = deferredProducerReplacements.get(producerBean);
