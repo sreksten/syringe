@@ -1,6 +1,4 @@
 package com.threeamigos.common.util.implementations.injection.spi.configured;
-
-import com.threeamigos.common.util.implementations.injection.spi.configurators.InjectionPointConfiguratorImpl;
 import jakarta.enterprise.inject.spi.Annotated;
 import jakarta.enterprise.inject.spi.Bean;
 import jakarta.enterprise.inject.spi.InjectionPoint;
@@ -13,8 +11,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * Simple InjectionPoint implementation used by {@link InjectionPointConfiguratorImpl}
- * to materialize configured injection point metadata.
+ * Simple InjectionPoint implementation used to materialize configured injection point metadata.
  */
 public class ConfiguredInjectionPoint implements InjectionPoint {
 

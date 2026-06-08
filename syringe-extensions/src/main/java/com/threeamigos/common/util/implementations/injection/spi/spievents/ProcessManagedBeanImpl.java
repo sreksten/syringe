@@ -3,7 +3,6 @@ package com.threeamigos.common.util.implementations.injection.spi.spievents;
 import com.threeamigos.common.util.implementations.injection.discovery.NonPortableBehaviourException;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.KnowledgeBase;
 import com.threeamigos.common.util.implementations.injection.spi.BeanManagerImpl;
-import com.threeamigos.common.util.implementations.injection.types.RawTypeExtractor;
 import com.threeamigos.common.util.implementations.injection.spi.Phase;
 import com.threeamigos.common.util.interfaces.messagehandler.MessageHandler;
 import jakarta.enterprise.inject.spi.*;
@@ -31,6 +30,7 @@ import static com.threeamigos.common.util.implementations.injection.annotations.
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasDependentAnnotation;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasDecoratorAnnotation;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasInterceptorAnnotation;
+import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.getRawType;
 
 /**
  * ProcessManagedBean event implementation.
@@ -130,7 +130,7 @@ public class ProcessManagedBeanImpl<T> extends ProcessBeanImpl<T> implements Pro
 
     private boolean isDeclaringTypePresentInBeanTypes(Class<?> declaringClass, Set<Type> beanTypes) {
         for (Type beanType : beanTypes) {
-            Class<?> raw = RawTypeExtractor.getRawType(beanType);
+            Class<?> raw = getRawType(beanType);
             if (raw != null && raw.equals(declaringClass)) {
                 return true;
             }

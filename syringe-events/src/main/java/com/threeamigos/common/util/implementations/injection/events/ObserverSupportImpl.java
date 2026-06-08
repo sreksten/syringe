@@ -54,6 +54,7 @@ import static com.threeamigos.common.util.implementations.injection.annotations.
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.getPriorityValue;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasSpecializesAnnotation;
 import static com.threeamigos.common.util.implementations.injection.spi.SPIUtils.isContainerLifecycleObservedType;
+import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.extractRawClass;
 
 /**
  * Full implementation of {@link ObserverSupport} that handles CDI event/observer processing.
@@ -689,7 +690,7 @@ public class ObserverSupportImpl implements ObserverSupport {
                 observedParameterBaseType,
                 declaringBean.getBeanClass(),
                 method.getDeclaringClass());
-        return com.threeamigos.common.util.implementations.injection.types.RawTypeExtractor.extractRawClass(resolvedObservedType);
+        return extractRawClass(resolvedObservedType);
     }
 
     private String observerInfoKey(ObserverMethodInfo info) {

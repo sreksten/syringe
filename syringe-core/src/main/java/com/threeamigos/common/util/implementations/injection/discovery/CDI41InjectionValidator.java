@@ -8,13 +8,13 @@ import com.threeamigos.common.util.implementations.injection.annotations.legacy.
 import com.threeamigos.common.util.implementations.injection.annotations.legacy.NoOpLegacyNewSupport;
 import com.threeamigos.common.util.implementations.injection.resolution.BeanImpl;
 import com.threeamigos.common.util.implementations.injection.resolution.ProducerBean;
-import com.threeamigos.common.util.implementations.injection.resolution.TypeChecker;
+import com.threeamigos.common.util.implementations.injection.types.TypeHelper;
 import com.threeamigos.common.util.implementations.injection.scopes.InjectionPointImpl;
-import com.threeamigos.common.util.implementations.injection.spi.SyntheticBean;
-import com.threeamigos.common.util.implementations.injection.spi.SyntheticProducerBeanImpl;
 import com.threeamigos.common.util.implementations.injection.annotations.AnnotationComparator;
+import com.threeamigos.common.util.implementations.injection.spi.support.SyntheticBeanMarker;
+import com.threeamigos.common.util.implementations.injection.spi.support.SyntheticBeanPriority;
+import com.threeamigos.common.util.implementations.injection.spi.support.SyntheticProducerBeanMarker;
 import com.threeamigos.common.util.implementations.injection.resolution.GenericTypeResolver;
-import com.threeamigos.common.util.implementations.injection.types.RawTypeExtractor;
 import jakarta.enterprise.inject.Default;
 import jakarta.enterprise.inject.Instance;
 import jakarta.enterprise.inject.spi.DefinitionException;
@@ -33,6 +33,7 @@ import java.lang.annotation.Annotation;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.*;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
+import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.getRawType;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -69,14 +70,14 @@ import java.util.stream.Collectors;
  *
  * <p>Uses existing utilities:
  * <ul>
- *   <li>{@link TypeChecker} - for proper type hierarchy and generic matching</li>
+ *   <li>{@link TypeHelper} - for proper type hierarchy and generic matching</li>
  *   <li>{@link RawTypeExtractor} - for extracting raw types from generic types</li>
  * </ul>
  */
 public class CDI41InjectionValidator {
 
     private final KnowledgeBase knowledgeBase;
-    private final TypeChecker typeChecker;
+    private final TypeHelper typeHelper;
     private final LegacyNewSupport legacyNewSupport;
     private final boolean allowNonPortableAsyncObserverEventParameterPriority;
 
@@ -104,7 +105,7 @@ public class CDI41InjectionValidator {
                                    LegacyNewSupport legacyNewSupport,
                                    boolean allowNonPortableAsyncObserverEventParameterPriority) {
         this.knowledgeBase = Objects.requireNonNull(knowledgeBase, "knowledgeBase cannot be null");
-        this.typeChecker = new TypeChecker();
+        this.typeHelper = new TypeHelper();
         this.legacyNewSupport = legacyNewSupport != null
                 ? legacyNewSupport
                 : new NoOpLegacyNewSupport();
@@ -372,8 +373,8 @@ public class CDI41InjectionValidator {
             }
         }
 
-        if (bean instanceof SyntheticBean) {
-            Integer priority = ((SyntheticBean<?>) bean).getPriority();
+        if (bean instanceof SyntheticBeanPriority) {
+            Integer priority = ((SyntheticBeanPriority) bean).getPriority();
             if (priority != null) {
                 return priority;
             }
@@ -948,7 +949,7 @@ public class CDI41InjectionValidator {
     }
 
     private boolean isBuiltInPassivationCapableDependency(Type requiredType) {
-        Class<?> rawType = RawTypeExtractor.getRawType(requiredType);
+        Class<?> rawType = getRawType(requiredType);
         if (rawType == null) {
             return false;
         }
@@ -1398,7 +1399,7 @@ public class CDI41InjectionValidator {
      * @return true if the injection point can be satisfied, false otherwise
      */
     private boolean validateInjectionPoint(InjectionPoint injectionPoint, Bean<?> owningBean) {
-        if (owningBean instanceof SyntheticBean &&
+        if (owningBean instanceof SyntheticBeanMarker &&
                 injectionPoint != null &&
                 injectionPoint.getMember() == null &&
                 injectionPoint.getAnnotated() == null) {
@@ -1418,7 +1419,7 @@ public class CDI41InjectionValidator {
         Set<Annotation> qualifiers = injectionPoint.getQualifiers();
 
         if (isRawProgrammaticLookupType(requiredType)) {
-            Class<?> rawType = RawTypeExtractor.getRawType(requiredType);
+            Class<?> rawType = getRawType(requiredType);
             knowledgeBase.addDefinitionError(
                     formatInjectionPoint(injectionPoint, owningBean) +
                     ": injection point of raw type " + rawType.getSimpleName() + " is not allowed"
@@ -1768,7 +1769,7 @@ public class CDI41InjectionValidator {
         for (Type decoratedType : decoratedTypes) {
             for (Type beanType : beanTypes) {
                 try {
-                    if (typeChecker.isAssignable(decoratedType, beanType)) {
+                    if (typeHelper.isAssignable(decoratedType, beanType)) {
                         return true;
                     }
                 } catch (DefinitionException ex) {
@@ -1827,7 +1828,7 @@ public class CDI41InjectionValidator {
     }
 
     private String unproxyableReason(Type beanType, Bean<?> bean) {
-        Class<?> rawType = RawTypeExtractor.getRawType(beanType);
+        Class<?> rawType = getRawType(beanType);
         if (rawType == null) {
             return null;
         }
@@ -1972,8 +1973,8 @@ public class CDI41InjectionValidator {
             }
         }
 
-        if (bean instanceof SyntheticBean) {
-            Integer syntheticPriority = ((SyntheticBean<?>) bean).getPriority();
+        if (bean instanceof SyntheticBeanPriority) {
+            Integer syntheticPriority = ((SyntheticBeanPriority) bean).getPriority();
             if (syntheticPriority != null) {
                 return syntheticPriority;
             }
@@ -2047,7 +2048,7 @@ public class CDI41InjectionValidator {
      * @return true if the type is Instance or Provider
      */
     private boolean isInstanceOrProvider(Type type) {
-        Class<?> rawType = RawTypeExtractor.getRawType(type);
+        Class<?> rawType = getRawType(type);
         return Instance.class.equals(rawType) || Provider.class.equals(rawType);
     }
 
@@ -2059,7 +2060,7 @@ public class CDI41InjectionValidator {
     }
 
     private boolean isInterceptionFactory(Type type) {
-        Class<?> rawType = RawTypeExtractor.getRawType(type);
+        Class<?> rawType = getRawType(type);
         return InterceptionFactory.class.equals(rawType);
     }
 
@@ -2077,7 +2078,7 @@ public class CDI41InjectionValidator {
      *   <li>Checking producer methods (methods annotated with @Produces)</li>
      * </ol>
      *
-     * <p><b>Type Matching:</b> Uses {@link TypeChecker} for proper generic type matching.
+     * <p><b>Type Matching:</b> Uses {@link TypeHelper} for proper generic type matching.
      * For example:
      * <pre>
      * // Injection point
@@ -2186,7 +2187,7 @@ public class CDI41InjectionValidator {
             }
             return producerBean.isAlternativeEnabled();
         }
-        if (bean instanceof SyntheticProducerBeanImpl) {
+        if (bean instanceof SyntheticProducerBeanMarker) {
             Bean<?> originalBean = findOriginalProducerBean(bean);
             if (originalBean instanceof ProducerBean) {
                 return isBeanEnabledForResolution(originalBean, visited);
@@ -2213,7 +2214,7 @@ public class CDI41InjectionValidator {
             Bean<?> declaringBean = findDeclaringBean(producerBean.getDeclaringClass());
             return declaringBean != null && declaringBean.isAlternative();
         }
-        if (bean instanceof SyntheticProducerBeanImpl) {
+        if (bean instanceof SyntheticProducerBeanMarker) {
             Bean<?> originalBean = findOriginalProducerBean(bean);
             return isEffectivelyAlternative(originalBean);
         }
@@ -2225,7 +2226,7 @@ public class CDI41InjectionValidator {
             return null;
         }
         for (Bean<?> candidate : knowledgeBase.getValidBeans()) {
-            if (candidate instanceof ProducerBean || candidate instanceof SyntheticProducerBeanImpl) {
+            if (candidate instanceof ProducerBean || candidate instanceof SyntheticProducerBeanMarker) {
                 continue;
             }
             if (declaringClass.equals(candidate.getBeanClass())) {
@@ -2269,7 +2270,7 @@ public class CDI41InjectionValidator {
                     continue;
                 }
                 // Use TypeChecker for proper type matching with generic support
-                if (typeChecker.isLookupTypeAssignable(requiredType, beanType)) {
+                if (typeHelper.isLookupTypeAssignable(requiredType, beanType)) {
                     return true;
                 }
             } catch (Exception e) {
@@ -2291,8 +2292,8 @@ public class CDI41InjectionValidator {
         Class<?> requiredRaw;
         Class<?> beanRaw;
         try {
-            requiredRaw = normalizePrimitiveType(RawTypeExtractor.getRawType(requiredType));
-            beanRaw = normalizePrimitiveType(RawTypeExtractor.getRawType(beanType));
+            requiredRaw = normalizePrimitiveType(getRawType(requiredType));
+            beanRaw = normalizePrimitiveType(getRawType(beanType));
         } catch (RuntimeException e) {
             return true;
         }

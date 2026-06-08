@@ -43,6 +43,10 @@ import com.threeamigos.common.util.implementations.injection.resolution.Producer
 import com.threeamigos.common.util.implementations.injection.resolution.DestroyedInstanceTracker;
 import com.threeamigos.common.util.implementations.injection.scopes.InjectionPointImpl;
 import com.threeamigos.common.util.implementations.injection.spi.*;
+import com.threeamigos.common.util.implementations.injection.spi.support.InjectionPointsReplaceableBean;
+import com.threeamigos.common.util.implementations.injection.spi.support.NoOpSpiSupport;
+import com.threeamigos.common.util.implementations.injection.spi.support.SpiSupport;
+import com.threeamigos.common.util.implementations.injection.spi.support.SyntheticBeanMarker;
 import com.threeamigos.common.util.implementations.injection.spi.spievents.SimpleAnnotatedType;
 import com.threeamigos.common.util.implementations.injection.types.TypeClosureHelper;
 import com.threeamigos.common.util.implementations.messagehandler.ConsoleMessageHandler;
@@ -65,14 +69,12 @@ import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.lang.reflect.WildcardType;
 import java.util.*;
-import java.util.function.BiConsumer;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasObservesAnnotation;
 import static com.threeamigos.common.util.implementations.injection.spi.SPIUtils.extractPrioritizedInterfacePriority;
-import static com.threeamigos.common.util.implementations.injection.types.RawTypeExtractor.extractRawClass;
+import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.extractRawClass;
 
 /**
  * Syringe - CDI 4.1 compliant container implementation.
@@ -253,6 +255,7 @@ public class Syringe {
         knowledgeBase = new KnowledgeBase(messageHandler);
         contextManager = new ContextManager(messageHandler);
         beanManager = new BeanManagerImpl(knowledgeBase, contextManager);
+        beanManager.setSpiSupport(discoverSpiSupport());
 
         extensionsManager = discoverExtensionsManager();
         extensionsManager.setKnowledgeBase(knowledgeBase);
@@ -1983,7 +1986,7 @@ public class Syringe {
                     processedBeanClasses.add(bean.getBeanClass());
                 }
                 // Determine the bean type and fire an appropriate event
-                if (bean instanceof SyntheticBean) {
+                if (bean instanceof SyntheticBeanMarker) {
                     // Synthetic bean - registered via AfterBeanDiscovery.addBean()
                     extensionsManager.processSyntheticBean(bean, null);
                     syntheticCount++;
@@ -2325,7 +2328,10 @@ public class Syringe {
         knowledgeBase.getBeans().remove(original);
 
         // Create a synthetic bean that delegates create/destroy/injection points to the final producer
-        Bean synthetic = new SyntheticProducerBeanImpl(original, original.getBeanClass(), finalProducer);
+        Bean synthetic = beanManager.getSpiSupport().createSyntheticProducerBean(
+                (BeanAttributes) original,
+                (Class) original.getBeanClass(),
+                (Producer) finalProducer);
         knowledgeBase.addBean(synthetic);
     }
 
@@ -2695,10 +2701,9 @@ public class Syringe {
         } else if (bean instanceof ProducerBean<?>) {
             ProducerBean<?> pb = (ProducerBean<?>) bean;
             pb.replaceInjectionPoint(original, updated);
-        } else if (bean instanceof SyntheticBean<?>) {
+        } else if (bean instanceof InjectionPointsReplaceableBean) {
             try {
-                SyntheticBean<?> sb = (SyntheticBean<?>) bean;
-                Set<InjectionPoint> ips = new HashSet<>(sb.getInjectionPoints());
+                Set<InjectionPoint> ips = new HashSet<>(bean.getInjectionPoints());
                 if (original != null) {
                     ips.remove(original);
                 }
@@ -2706,81 +2711,15 @@ public class Syringe {
                     ips.add(updated);
                 }
 
-                @SuppressWarnings("unchecked")
-                Function<CreationalContext<Object>, Object> createCb =
-                        (Function<CreationalContext<Object>, Object>) getPrivateField(sb, "createCallback");
-                @SuppressWarnings("unchecked")
-                BiConsumer<Object, CreationalContext<Object>> destroyCb =
-                        (BiConsumer<Object, CreationalContext<Object>>) getPrivateField(sb, "destroyCallback");
-                Integer priority = (Integer) getPrivateField(sb, "priority");
-
-                SyntheticBean<?> replacement = new SyntheticBean<>(
-                        sb.getBeanClass(),
-                        sb.getTypes(),
-                        sb.getQualifiers(),
-                        sb.getScope(),
-                        sb.getName(),
-                        sb.getId(),
-                        sb.getStereotypes(),
-                        sb.isAlternative(),
-                        priority,
-                        createCb,
-                        destroyCb,
-                        ips
-                );
-                knowledgeBase.getBeans().remove(sb);
-                knowledgeBase.addBean(replacement);
+                Bean<?> replacement = ((InjectionPointsReplaceableBean) bean).withInjectionPoints(ips);
+                if (replacement != null) {
+                    knowledgeBase.getBeans().remove(bean);
+                    knowledgeBase.addBean(replacement);
+                }
             } catch (Exception e) {
                 log("Error updating injection point for synthetic bean", e);
             }
-        } else if (bean instanceof SyntheticProducerBeanImpl<?>) {
-            try {
-                SyntheticProducerBeanImpl<?> sp = (SyntheticProducerBeanImpl<?>) bean;
-                Set<InjectionPoint> ips = new HashSet<>(sp.getInjectionPoints());
-                if (original != null) {
-                    ips.remove(original);
-                }
-                if (updated != null) {
-                    ips.add(updated);
-                }
-
-                @SuppressWarnings("unchecked")
-                Producer<Object> originalProducer = (Producer<Object>) getPrivateField(sp, "producer");
-                @SuppressWarnings("unchecked")
-                BeanAttributes<Object> attributes = (BeanAttributes<Object>) getPrivateField(sp, "attributes");
-                Class<?> beanClass = (Class<?>) getPrivateField(sp, "beanClass");
-
-                Producer<Object> wrapper = new Producer<Object>() {
-                    @Override
-                    public Object produce(CreationalContext<Object> ctx) {
-                        return originalProducer.produce(ctx);
-                    }
-
-                    @Override
-                    public void dispose(Object instance) {
-                        originalProducer.dispose(instance);
-                    }
-
-                    @Override
-                    public Set<InjectionPoint> getInjectionPoints() {
-                        return ips;
-                    }
-                };
-
-                SyntheticProducerBeanImpl<Object> replacement =
-                        new SyntheticProducerBeanImpl<>(attributes, beanClass, wrapper);
-                knowledgeBase.getBeans().remove(sp);
-                knowledgeBase.addBean(replacement);
-            } catch (Exception e) {
-                log("Error updating injection point for synthetic producer bean", e);
-            }
         }
-    }
-
-    private Object getPrivateField(Object target, String fieldName) throws Exception {
-        Field f = target.getClass().getDeclaredField(fieldName);
-        f.setAccessible(true);
-        return f.get(target);
     }
 
     // ============================================================
@@ -3545,6 +3484,19 @@ public class Syringe {
     /** Package-private setter for testing the no-op path. */
     void setBuildCompatibleExtensionsManager(BuildCompatibleExtensionsManager buildCompatibleExtensionsManager) {
         this.buildCompatibleExtensionsManager = buildCompatibleExtensionsManager;
+    }
+
+    private static SpiSupport discoverSpiSupport() {
+        Iterator<SpiSupport> it = loadInternalService(SpiSupport.class);
+        if (it.hasNext()) {
+            return it.next();
+        }
+        return new NoOpSpiSupport();
+    }
+
+    /** Package-private setter for testing the no-op path. */
+    void setSpiSupport(SpiSupport spiSupport) {
+        beanManager.setSpiSupport(spiSupport);
     }
 
     private static InterceptorSupport discoverInterceptorSupport() {

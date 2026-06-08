@@ -17,5 +17,9 @@
             <groupId>com.threeamigos</groupId>
             <artifactId>syringe-core</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.threeamigos</groupId>
+            <artifactId>syringe-spi-support</artifactId>
+        </dependency>
     </dependencies>
 </project>

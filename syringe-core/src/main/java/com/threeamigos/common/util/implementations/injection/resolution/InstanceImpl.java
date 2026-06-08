@@ -1,7 +1,6 @@
 package com.threeamigos.common.util.implementations.injection.resolution;
 
 import com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum;
-import com.threeamigos.common.util.implementations.injection.types.RawTypeExtractor;
 import com.threeamigos.common.util.implementations.injection.spi.BeanManagerImpl;
 import com.threeamigos.common.util.implementations.injection.util.LifecycleMethodHelper;
 import jakarta.annotation.Nonnull;
@@ -26,6 +25,7 @@ import java.util.function.Function;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.PRE_DESTROY;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
+import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.getRawType;
 
 /**
  * Generic wrapper implementing CDI {@link Instance} interface for lazy and programmatic
@@ -99,7 +99,7 @@ public class InstanceImpl<T> implements Instance<T>, Serializable {
          */
         @SuppressWarnings("unchecked")
         default T resolveInstance(Type type, Collection<Annotation> qualifiers) throws Exception {
-            return resolveInstance((Class<T>) RawTypeExtractor.getRawType(type), qualifiers);
+            return resolveInstance((Class<T>) getRawType(type), qualifiers);
         }
 
         /**
@@ -119,7 +119,7 @@ public class InstanceImpl<T> implements Instance<T>, Serializable {
         @SuppressWarnings("unchecked")
         default Collection<Class<? extends T>> resolveImplementations(Type type,
                                                                       Collection<Annotation> qualifiers) throws Exception {
-            return resolveImplementations((Class<T>) RawTypeExtractor.getRawType(type), qualifiers);
+            return resolveImplementations((Class<T>) getRawType(type), qualifiers);
         }
 
         /**
@@ -218,7 +218,7 @@ public class InstanceImpl<T> implements Instance<T>, Serializable {
         validateSelectAnnotations(annotations);
         // Extract the raw class from the TypeLiteral to maintain compatibility
         @SuppressWarnings("unchecked")
-        Class<U> rawType = (Class<U>) RawTypeExtractor.getRawType(subtype.getType());
+        Class<U> rawType = (Class<U>) getRawType(subtype.getType());
         @SuppressWarnings("unchecked")
         ResolutionStrategy<U> castStrategy = (ResolutionStrategy<U>) strategy();
         return new InstanceImpl<>(rawType, subtype.getType(), mergeQualifiers(qualifiers, annotations), castStrategy, adaptBeanLookup(),
@@ -499,7 +499,7 @@ public class InstanceImpl<T> implements Instance<T>, Serializable {
                 Set<Bean<?>> beans = beanManager.getBeans(requiredType, qualifierArray);
                 Collection<Bean<?>> iteratorBeans = applyIteratorAmbiguityElimination(beans);
                 @SuppressWarnings("unchecked")
-                Class<T> referenceType = (Class<T>) RawTypeExtractor.getRawType(requiredType);
+                Class<T> referenceType = (Class<T>) getRawType(requiredType);
                 List<T> instances = new ArrayList<>();
                 for (Bean<?> bean : iteratorBeans) {
                     @SuppressWarnings({"rawtypes", "unchecked"})

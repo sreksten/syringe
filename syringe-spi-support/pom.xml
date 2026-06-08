@@ -10,20 +10,12 @@
         <version>4.1.0</version>
     </parent>
 
-    <artifactId>syringe-interceptors</artifactId>
+    <artifactId>syringe-spi-support</artifactId>
 
     <dependencies>
         <dependency>
             <groupId>com.threeamigos</groupId>
             <artifactId>syringe-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.threeamigos</groupId>
-            <artifactId>syringe-proxy</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.threeamigos</groupId>
-            <artifactId>syringe-spi-support</artifactId>
         </dependency>
     </dependencies>
 </project>

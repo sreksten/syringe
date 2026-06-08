@@ -21,5 +21,9 @@
             <groupId>com.threeamigos</groupId>
             <artifactId>syringe-extensions</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.threeamigos</groupId>
+            <artifactId>syringe-spi-support</artifactId>
+        </dependency>
     </dependencies>
 </project>

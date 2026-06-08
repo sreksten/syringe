@@ -85,6 +85,7 @@
                             <artifactSet>
                                 <includes>
                                     <include>com.threeamigos:syringe-core</include>
+                                    <include>com.threeamigos:syringe-spi-support</include>
                                     <include>com.threeamigos:syringe-proxy</include>
                                     <include>com.threeamigos:syringe-interceptors</include>
                                     <include>com.threeamigos:syringe-decorators</include>
@@ -137,6 +138,10 @@
                 <dependency>
                     <groupId>com.threeamigos</groupId>
                     <artifactId>syringe-proxy</artifactId>
+                </dependency>
+                <dependency>
+                    <groupId>com.threeamigos</groupId>
+                    <artifactId>syringe-spi-support</artifactId>
                 </dependency>
                 <dependency>
                     <groupId>com.threeamigos</groupId>

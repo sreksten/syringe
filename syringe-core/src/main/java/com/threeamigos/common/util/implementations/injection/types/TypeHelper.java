@@ -1,8 +1,7 @@
-package com.threeamigos.common.util.implementations.injection.resolution;
+package com.threeamigos.common.util.implementations.injection.types;
 
 import com.threeamigos.common.util.implementations.collections.Cache;
 
-import com.threeamigos.common.util.implementations.injection.types.RawTypeExtractor;
 import jakarta.annotation.Nonnull;
 import jakarta.enterprise.inject.spi.DefinitionException;
 import java.lang.reflect.*;
@@ -73,7 +72,7 @@ import java.util.Objects;
  * @see ParameterizedType
  * @see GenericArrayType
  */
-public class TypeChecker {
+public class TypeHelper {
 
     /**
      * A cache for storing the results of type assignability checks.
@@ -173,7 +172,7 @@ public class TypeChecker {
         // when raw types are assignable (e.g., observe Box, fire Box<Integer, String, Random>).
         if (observedEventType instanceof Class<?> && eventType instanceof ParameterizedType) {
             Class<?> observedRaw = normalizePrimitive((Class<?>) observedEventType);
-            Class<?> eventRaw = normalizePrimitive(RawTypeExtractor.getRawType(eventType));
+            Class<?> eventRaw = normalizePrimitive(getRawType(eventType));
             if (observedRaw.isAssignableFrom(eventRaw)) {
                 return true;
             }
@@ -226,9 +225,9 @@ public class TypeChecker {
                 return true; // Raw/erased type variable accepts any target
             }
 
-            Class<?> targetRaw = RawTypeExtractor.getRawType(targetType);
+            Class<?> targetRaw = getRawType(targetType);
             for (Type bound : bounds) {
-                Class<?> boundRaw = RawTypeExtractor.getRawType(bound);
+                Class<?> boundRaw = getRawType(bound);
                 boolean overlap = boundRaw.isAssignableFrom(targetRaw) || targetRaw.isAssignableFrom(boundRaw);
                 if (!overlap) {
                     return false;
@@ -237,8 +236,8 @@ public class TypeChecker {
             return true;
         }
 
-        Class<?> targetRaw = RawTypeExtractor.getRawType(targetType);
-        Class<?> implementationRaw = RawTypeExtractor.getRawType(implementationType);
+        Class<?> targetRaw = getRawType(targetType);
+        Class<?> implementationRaw = getRawType(implementationType);
         Class<?> normalizedTargetRaw = normalizePrimitive(targetRaw);
         Class<?> normalizedImplementationRaw = normalizePrimitive(implementationRaw);
 
@@ -368,8 +367,8 @@ public class TypeChecker {
         return false;
     }
 
-    private Class<?> normalizePrimitive(Class<?> type) {
-        if (!type.isPrimitive()) {
+    public static Class<?> normalizePrimitive(Class<?> type) {
+        if (type == null || !type.isPrimitive()) {
             return type;
         }
         if (type == int.class) return Integer.class;
@@ -399,7 +398,7 @@ public class TypeChecker {
      * @return the parameterized supertype matching targetRaw, or null if not found
      */
     public Type getExactSuperType(Type type, Class<?> targetRaw) {
-        Class<?> raw = RawTypeExtractor.getRawType(type);
+        Class<?> raw = getRawType(type);
         if (raw == targetRaw) return type;
 
         if (targetRaw.isInterface()) {
@@ -731,8 +730,8 @@ public class TypeChecker {
             return false;
         }
 
-        Class<?> leftRaw = normalizePrimitive(RawTypeExtractor.getRawType(left));
-        Class<?> rightRaw = normalizePrimitive(RawTypeExtractor.getRawType(right));
+        Class<?> leftRaw = normalizePrimitive(getRawType(left));
+        Class<?> rightRaw = normalizePrimitive(getRawType(right));
         if (leftRaw.isAssignableFrom(rightRaw) || rightRaw.isAssignableFrom(leftRaw)) {
             return true;
         }
@@ -759,8 +758,8 @@ public class TypeChecker {
             return false;
         }
 
-        Class<?> candidateRaw = normalizePrimitive(RawTypeExtractor.getRawType(candidate));
-        Class<?> superRaw = normalizePrimitive(RawTypeExtractor.getRawType(superType));
+        Class<?> candidateRaw = normalizePrimitive(getRawType(candidate));
+        Class<?> superRaw = normalizePrimitive(getRawType(superType));
         return superRaw.isAssignableFrom(candidateRaw);
     }
 
@@ -808,8 +807,8 @@ public class TypeChecker {
                 if (upperBound.equals(Object.class)) {
                     return true; // effectively unbounded
                 }
-                Class<?> injectionRaw = RawTypeExtractor.getRawType(injectionPointType);
-                Class<?> boundRaw = RawTypeExtractor.getRawType(upperBound);
+                Class<?> injectionRaw = getRawType(injectionPointType);
+                Class<?> boundRaw = getRawType(upperBound);
                 if (boundRaw.isAssignableFrom(injectionRaw)) {
                     return true;
                 }
@@ -821,8 +820,8 @@ public class TypeChecker {
         // Example: List<? super Integer> can provide List<Number> since Number is super of Integer
         if (lowerBounds.length > 0) {
             for (Type lowerBound : lowerBounds) {
-                Class<?> injectionRaw = RawTypeExtractor.getRawType(injectionPointType);
-                Class<?> boundRaw = RawTypeExtractor.getRawType(lowerBound);
+                Class<?> injectionRaw = getRawType(injectionPointType);
+                Class<?> boundRaw = getRawType(lowerBound);
                 if (injectionRaw.isAssignableFrom(boundRaw)) {
                     return true;
                 }
@@ -846,11 +845,11 @@ public class TypeChecker {
             return true;
         }
 
-        Class<?> candidateRaw = RawTypeExtractor.getRawType(candidateType);
+        Class<?> candidateRaw = getRawType(candidateType);
 
         if (upperBounds.length > 0 && lowerBounds.length == 0) {
             for (Type upperBound : upperBounds) {
-                Class<?> upperRaw = RawTypeExtractor.getRawType(upperBound);
+                Class<?> upperRaw = getRawType(upperBound);
                 if (!upperRaw.isAssignableFrom(candidateRaw)) {
                     return false;
                 }
@@ -860,7 +859,7 @@ public class TypeChecker {
 
         if (lowerBounds.length > 0) {
             for (Type lowerBound : lowerBounds) {
-                Class<?> lowerRaw = RawTypeExtractor.getRawType(lowerBound);
+                Class<?> lowerRaw = getRawType(lowerBound);
                 if (candidateRaw.isAssignableFrom(lowerRaw)) {
                     return true;
                 }
@@ -1016,6 +1015,97 @@ public class TypeChecker {
         return bounds;
     }
 
+    /**
+     * Checks if the given types array contains a type variable.
+     * @param types the types' array to check
+     * @return true if the types' array contains a type variable, false otherwise
+     */
+    public static boolean containsTypeVariable(Type[] types) {
+        for (Type type : types) {
+            if (containsTypeVariable(type)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Checks if the given type contains a type variable.
+     * @param type the type to check
+     * @return true if the type contains a type variable, false otherwise
+     */
+    public static boolean containsTypeVariable(Type type) {
+        if (type instanceof TypeVariable) {
+            return true;
+        }
+        if (type instanceof ParameterizedType) {
+            return containsTypeVariable(((ParameterizedType) type).getActualTypeArguments());
+        }
+        if (type instanceof GenericArrayType) {
+            return containsTypeVariable(((GenericArrayType) type).getGenericComponentType());
+        }
+        if (type instanceof Class && ((Class<?>) type).isArray()) {
+            return containsTypeVariable(((Class<?>) type).getComponentType());
+        }
+        if (type instanceof WildcardType) {
+            WildcardType wildcardType = (WildcardType) type;
+            return containsTypeVariable(wildcardType.getLowerBounds()) ||
+                    containsTypeVariable(wildcardType.getUpperBounds());
+        }
+        return false;
+    }
+
+    /**
+     * Normalizes the resolved type by replacing generic array types with their corresponding array classes.
+     * @param resolvedType the resolved type to normalize
+     * @return the normalized type
+     */
+    public static Type normalizeResolvedType(Type resolvedType) {
+        if (!(resolvedType instanceof GenericArrayType)) {
+            return resolvedType;
+        }
+
+        Type component = ((GenericArrayType) resolvedType).getGenericComponentType();
+        if (component instanceof Class<?>) {
+            return Array.newInstance((Class<?>) component, 0).getClass();
+        }
+        return resolvedType;
+    }
+
+    public static Class<?> extractRawClass(Type type) {
+        if (type instanceof Class<?>) {
+            return (Class<?>) type;
+        }
+        if (type instanceof ParameterizedType) {
+            Type rawType = ((ParameterizedType) type).getRawType();
+            if (rawType instanceof Class<?>) {
+                return (Class<?>) rawType;
+            }
+        }
+        return null;
+    }
+
+    public static Class<?> getRawType(Type type) {
+        if (type instanceof Class<?>) {
+            return (Class<?>) type;
+        }
+        if (type instanceof ParameterizedType) {
+            return (Class<?>) ((ParameterizedType) type).getRawType();
+        }
+        if (type instanceof GenericArrayType) {
+            Type componentType = ((GenericArrayType) type).getGenericComponentType();
+            return Array.newInstance(getRawType(componentType), 0).getClass();
+        }
+        if (type instanceof TypeVariable) {
+            // Usually, we take the first bound (e.g., <T extends Number> -> Number)
+            return getRawType(((TypeVariable<?>) type).getBounds()[0]);
+        }
+        if (type instanceof WildcardType) {
+            // Usually, we take the upper bound (e.g., <? extends Number> -> Number)
+            return getRawType(((WildcardType) type).getUpperBounds()[0]);
+        }
+        throw new IllegalArgumentException("Unsupported type: " + type);
+    }
     /**
      * A class used as a key for the TypeChecker internal cache.
      * As I am still supporting Java 1.8, I can't use a record.

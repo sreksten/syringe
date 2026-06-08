@@ -11,6 +11,7 @@
 
     <modules>
         <module>syringe-core</module>
+        <module>syringe-spi-support</module>
         <module>syringe-proxy</module>
         <module>syringe-interceptors</module>
         <module>syringe-decorators</module>
@@ -42,6 +43,11 @@
             <dependency>
                 <groupId>com.threeamigos</groupId>
                 <artifactId>syringe-proxy</artifactId>
+                <version>${syringe.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.threeamigos</groupId>
+                <artifactId>syringe-spi-support</artifactId>
                 <version>${syringe.version}</version>
             </dependency>
             <dependency>

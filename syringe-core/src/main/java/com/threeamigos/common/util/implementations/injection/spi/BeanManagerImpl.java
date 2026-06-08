@@ -22,9 +22,14 @@ import com.threeamigos.common.util.implementations.injection.knowledgebase.Decor
 import com.threeamigos.common.util.implementations.injection.knowledgebase.InterceptorInfo;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.KnowledgeBase;
 import com.threeamigos.common.util.implementations.injection.events.ObserverMethodMetadata;
+import com.threeamigos.common.util.implementations.injection.spi.support.NoOpSpiSupport;
+import com.threeamigos.common.util.implementations.injection.spi.support.SpiSupport;
+import com.threeamigos.common.util.implementations.injection.spi.support.SpiSupportLoader;
+import com.threeamigos.common.util.implementations.injection.spi.support.SyntheticBeanPriority;
+import com.threeamigos.common.util.implementations.injection.spi.support.SyntheticProducerBeanMarker;
 import com.threeamigos.common.util.implementations.injection.spi.spievents.SimpleAnnotatedType;
+import com.threeamigos.common.util.implementations.injection.types.TypeHelper;
 import com.threeamigos.common.util.implementations.injection.util.LifecycleMethodHelper;
-import com.threeamigos.common.util.implementations.injection.types.RawTypeExtractor;
 import com.threeamigos.common.util.implementations.injection.types.TypeClosureHelper;
 import com.threeamigos.common.util.implementations.injection.util.tx.TransactionServicesFactory;
 import jakarta.annotation.Nonnull;
@@ -62,6 +67,7 @@ import java.util.stream.Collectors;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.*;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
+import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.getRawType;
 
 /**
  * Implementation of the CDI 4.1 BeanManager interface.
@@ -111,7 +117,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
     private final KnowledgeBase knowledgeBase;
     private final BeanResolver beanResolver;
     private final ContextManager contextManager;
-    private final TypeChecker typeChecker;
+    private final TypeHelper typeHelper;
     private final List<Extension> registeredExtensions;
     private final String beanManagerId;
     private final ClassLoader registrationClassLoader;
@@ -126,6 +132,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
     private volatile DecoratorSupport decoratorSupport;
     private volatile LegacyNewSupport legacyNewSupport;
     private volatile ScopeSupport scopeSupport;
+    private volatile SpiSupport spiSupport;
 
     /**
      * Creates a new BeanManager implementation.
@@ -139,7 +146,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
         this.beanResolver = new BeanResolver(knowledgeBase, contextManager, TransactionServicesFactory.create());
         this.beanManagerId = UUID.randomUUID().toString();
         this.beanResolver.setOwningBeanManager(this);
-        this.typeChecker = new TypeChecker();
+        this.typeHelper = new TypeHelper();
         this.registeredExtensions = new ArrayList<>();
         this.requireActiveContextForGetContext = false;
         this.observerSupport = new NoOpObserverSupport();
@@ -147,6 +154,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
         this.decoratorSupport = new NoOpDecoratorSupport();
         this.legacyNewSupport = new NoOpLegacyNewSupport();
         this.scopeSupport = new NoOpScopeSupport();
+        this.spiSupport = SpiSupportLoader.load();
         this.beanResolver.setObserverSupport(this.observerSupport);
         this.beanResolver.setDecoratorSupport(this.decoratorSupport);
         this.beanResolver.setLegacyNewSupport(this.legacyNewSupport);
@@ -239,6 +247,17 @@ public class BeanManagerImpl implements BeanManager, Serializable {
 
     public ScopeSupport getScopeSupport() {
         return scopeSupport;
+    }
+
+    /** Wired by Syringe after ServiceLoader discovery. */
+    public void setSpiSupport(SpiSupport spiSupport) {
+        this.spiSupport = spiSupport != null
+                ? spiSupport
+                : new NoOpSpiSupport();
+    }
+
+    public SpiSupport getSpiSupport() {
+        return spiSupport;
     }
 
     /**
@@ -433,7 +452,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
                 if (notSameRawType(requestedType, beanType)) {
                     continue;
                 }
-                if (typeChecker.isAssignable(requestedType, beanType)) {
+                if (typeHelper.isAssignable(requestedType, beanType)) {
                     return true;
                 }
             } catch (RuntimeException ignored) {
@@ -460,8 +479,8 @@ public class BeanManagerImpl implements BeanManager, Serializable {
         Class<?> requiredRaw;
         Class<?> beanRaw;
         try {
-            requiredRaw = normalizePrimitiveType(RawTypeExtractor.getRawType(requiredType));
-            beanRaw = normalizePrimitiveType(RawTypeExtractor.getRawType(beanType));
+            requiredRaw = normalizePrimitiveType(getRawType(requiredType));
+            beanRaw = normalizePrimitiveType(getRawType(beanType));
         } catch (RuntimeException e) {
             return false;
         }
@@ -645,7 +664,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
                 if (notSameRawType(beanType, type)) {
                     continue;
                 }
-                if (typeChecker.isLookupTypeAssignable(beanType, type)) {
+                if (typeHelper.isLookupTypeAssignable(beanType, type)) {
                     typeMatches = true;
                     break;
                 }
@@ -769,7 +788,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
                 if (notSameRawType(beanType, type)) {
                     continue;
                 }
-                if (typeChecker.isLookupTypeAssignable(beanType, type)) {
+                if (typeHelper.isLookupTypeAssignable(beanType, type)) {
                     typeMatches = true;
                     break;
                 }
@@ -1044,7 +1063,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
             }
             return producerBean.isAlternativeEnabled();
         }
-        if (bean instanceof SyntheticProducerBeanImpl) {
+        if (bean instanceof SyntheticProducerBeanMarker) {
             Bean<?> originalBean = findOriginalProducerBean(bean);
             if (originalBean instanceof ProducerBean) {
                 return isBeanEnabledForResolution(originalBean);
@@ -1053,8 +1072,8 @@ public class BeanManagerImpl implements BeanManager, Serializable {
         if (!bean.isAlternative()) {
             return true;
         }
-        if (bean instanceof SyntheticBean) {
-            return ((SyntheticBean<?>) bean).getPriority() != null || isAlternativeSelectedByClassOrStereotype(bean);
+        if (bean instanceof SyntheticBeanPriority) {
+            return ((SyntheticBeanPriority) bean).getPriority() != null || isAlternativeSelectedByClassOrStereotype(bean);
         }
         if (bean instanceof BeanImpl) {
             return ((BeanImpl<?>) bean).isAlternativeEnabled();
@@ -1104,7 +1123,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
             Bean<?> declaringBean = findDeclaringBean(producerBean.getDeclaringClass());
             return declaringBean != null && declaringBean.isAlternative();
         }
-        if (bean instanceof SyntheticProducerBeanImpl) {
+        if (bean instanceof SyntheticProducerBeanMarker) {
             Bean<?> originalBean = findOriginalProducerBean(bean);
             return isEffectivelyAlternative(originalBean);
         }
@@ -1112,7 +1131,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
     }
 
     private boolean isAlternativeSelectedByClassOrStereotype(Bean<?> bean) {
-        if (bean instanceof SyntheticProducerBeanImpl) {
+        if (bean instanceof SyntheticProducerBeanMarker) {
             Bean<?> originalBean = findOriginalProducerBean(bean);
             if (originalBean instanceof ProducerBean) {
                 ProducerBean<?> producerBean = (ProducerBean<?>) originalBean;
@@ -1342,7 +1361,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
 
         for (ObserverMethodMetadata observerInfo : knowledgeBase.getObserverMethodInfos()) {
             // Check type compatibility
-            if (!typeChecker.isEventTypeAssignable(observerInfo.getEventType(), eventType)) {
+            if (!typeHelper.isEventTypeAssignable(observerInfo.getEventType(), eventType)) {
                 continue;
             }
 
@@ -1357,7 +1376,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
             if (syntheticObserver == null) {
                 continue;
             }
-            if (!typeChecker.isEventTypeAssignable(syntheticObserver.getObservedType(), eventType)) {
+            if (!typeHelper.isEventTypeAssignable(syntheticObserver.getObservedType(), eventType)) {
                 continue;
             }
 
@@ -2091,7 +2110,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
             if (notSameRawType(requiredType, beanType)) {
                 continue;
             }
-            if (typeChecker.isAssignable(requiredType, beanType)) {
+            if (typeHelper.isAssignable(requiredType, beanType)) {
                 typeMatches = true;
                 break;
             }
@@ -2153,7 +2172,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
         validateQualifierSet(observedQualifiers, "observedQualifiers");
 
         // Check type compatibility
-        if (!typeChecker.isEventTypeAssignable(observedType, eventType)) {
+        if (!typeHelper.isEventTypeAssignable(observedType, eventType)) {
             return false;
         }
 
@@ -2568,7 +2587,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
                     if (isObjectType(requestedType)) {
                         continue;
                     }
-                    if (typeChecker.isLookupTypeAssignable(requestedType, decoratedType)) {
+                    if (typeHelper.isLookupTypeAssignable(requestedType, decoratedType)) {
                         return true;
                     }
                 }
@@ -2580,7 +2599,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
                 if (isObjectType(requestedType)) {
                     continue;
                 }
-                if (typeChecker.isLookupTypeAssignable(requestedType, delegateType)) {
+                if (typeHelper.isLookupTypeAssignable(requestedType, delegateType)) {
                     return true;
                 }
             }
@@ -3109,7 +3128,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
         if (isDecoratorSyntheticBean(attributes, beanClass)) {
             InjectionPoint delegateInjectionPoint = findDecoratorDelegateInjectionPoint(beanClass);
             Set<Type> decoratedTypes = determineDecoratedTypes(attributes, beanClass, delegateInjectionPoint);
-            return new SyntheticDecoratorBeanImpl<>(
+            return spiSupport.createSyntheticDecoratorBean(
                     attributes,
                     beanClass,
                     injectionTarget,
@@ -3120,7 +3139,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
         }
 
         // Create a synthetic bean that uses the injection target for lifecycle management
-        return new SyntheticBeanImpl<>(attributes, beanClass, injectionTarget);
+        return spiSupport.createSyntheticBean(attributes, beanClass, injectionTarget);
     }
 
     /**
@@ -3154,7 +3173,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
         Producer<T> producer = producerFactory.createProducer(null);
 
         // Create a synthetic producer bean that uses the producer for instance creation
-        return new SyntheticProducerBeanImpl<>(attributes, beanClass, producer);
+        return spiSupport.createSyntheticProducerBean(attributes, beanClass, producer);
     }
 
     /**
@@ -3501,7 +3520,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
 
         Class<?> clazz = obj instanceof Bean ? ((Bean<?>) obj).getBeanClass() : obj.getClass();
 
-        if (obj instanceof SyntheticProducerBeanImpl) {
+        if (obj instanceof SyntheticProducerBeanMarker) {
             Bean<?> originalProducerBean = findOriginalProducerBean((Bean<?>) obj);
             if (originalProducerBean instanceof ProducerBean) {
                 ProducerBean<?> producerBean = (ProducerBean<?>) originalProducerBean;
@@ -3547,8 +3566,8 @@ public class BeanManagerImpl implements BeanManager, Serializable {
             }
         }
 
-        if (obj instanceof SyntheticBean) {
-            Integer syntheticPriority = ((SyntheticBean<?>) obj).getPriority();
+        if (obj instanceof SyntheticBeanPriority) {
+            Integer syntheticPriority = ((SyntheticBeanPriority) obj).getPriority();
             if (syntheticPriority != null) {
                 return syntheticPriority;
             }
@@ -4415,7 +4434,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
                 // CDI dependent context contract expects null for managed dependent beans when
                 // no CreationalContext is supplied. Producer beans are a special case used by
                 // lifecycle TCK flows that jakarta.enterprise.invoke destroy() after Context#get(Contextual).
-                if (bean instanceof ProducerBean<?> || bean instanceof SyntheticProducerBeanImpl<?>) {
+                if (bean instanceof ProducerBean<?> || bean instanceof SyntheticProducerBeanMarker) {
                     return scopeContext.get(bean, null);
                 }
                 return null;
@@ -5021,7 +5040,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
         Annotation typedAnnotation = findTypedAnnotation(member.getAnnotations());
         Set<Type> resultingTypes = unrestrictedTypes;
         if (typedAnnotation != null) {
-            Class<?> memberRawType = RawTypeExtractor.getRawType(member.getBaseType());
+            Class<?> memberRawType = getRawType(member.getBaseType());
             resultingTypes = applyTypedRestriction(memberRawType, typedAnnotation, unrestrictedTypes);
         }
         return keepLegalBeanTypes(resultingTypes);
@@ -5069,7 +5088,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
                 }
                 boolean matched = false;
                 for (Type unrestricted : unrestrictedTypes) {
-                    Class<?> rawType = RawTypeExtractor.getRawType(unrestricted);
+                    Class<?> rawType = getRawType(unrestricted);
                     if (typedClass.equals(rawType)) {
                         types.add(unrestricted);
                         matched = true;

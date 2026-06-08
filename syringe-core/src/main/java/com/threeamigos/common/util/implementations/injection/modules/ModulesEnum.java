@@ -13,6 +13,7 @@ public enum ModulesEnum {
     EXTENSIONS,
     INTERCEPTORS,
     LEGACY,
+    SPI_SUPPORT,
     SCOPES,
     SE;
 

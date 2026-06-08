@@ -1,6 +1,8 @@
 package com.threeamigos.common.util.implementations.injection.spi;
 
 import com.threeamigos.common.util.implementations.injection.resolution.DestroyedInstanceTracker;
+import com.threeamigos.common.util.implementations.injection.spi.support.InjectionPointsReplaceableBean;
+import com.threeamigos.common.util.implementations.injection.spi.support.SyntheticBeanPriority;
 import jakarta.enterprise.context.spi.CreationalContext;
 import jakarta.enterprise.inject.spi.PassivationCapable;
 import jakarta.enterprise.inject.spi.Bean;
@@ -19,7 +21,7 @@ import java.util.function.Function;
  * @param <T> the bean type
  * @author CDI Container
  */
-public class SyntheticBean<T> implements Bean<T>, PassivationCapable {
+public class SyntheticBean<T> implements Bean<T>, PassivationCapable, SyntheticBeanPriority, InjectionPointsReplaceableBean {
 
     // Bean attributes
     private final Class<?> beanClass;
@@ -124,6 +126,27 @@ public class SyntheticBean<T> implements Bean<T>, PassivationCapable {
     @Override
     public Set<InjectionPoint> getInjectionPoints() {
         return injectionPoints;
+    }
+
+    @Override
+    public Bean<?> withInjectionPoints(Set<InjectionPoint> injectionPoints) {
+        Set<InjectionPoint> replacementPoints = injectionPoints != null
+                ? injectionPoints
+                : Collections.<InjectionPoint>emptySet();
+        return new SyntheticBean<>(
+                beanClass,
+                types,
+                qualifiers,
+                scope,
+                name,
+                id,
+                stereotypes,
+                alternative,
+                priority,
+                createCallback,
+                destroyCallback,
+                replacementPoints
+        );
     }
 
     @Override

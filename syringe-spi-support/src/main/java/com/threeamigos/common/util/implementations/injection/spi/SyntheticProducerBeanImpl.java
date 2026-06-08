@@ -1,6 +1,8 @@
 package com.threeamigos.common.util.implementations.injection.spi;
 
 import com.threeamigos.common.util.implementations.injection.resolution.DestroyedInstanceTracker;
+import com.threeamigos.common.util.implementations.injection.spi.support.InjectionPointsReplaceableBean;
+import com.threeamigos.common.util.implementations.injection.spi.support.SyntheticProducerBeanMarker;
 import jakarta.enterprise.context.spi.CreationalContext;
 import jakarta.enterprise.inject.spi.Bean;
 import jakarta.enterprise.inject.spi.BeanAttributes;
@@ -28,7 +30,7 @@ import java.util.IdentityHashMap;
  *
  * <p><b>CDI Spec Section 11.5.11:</b> Programmatic bean creation
  */
-public class SyntheticProducerBeanImpl<T> implements Bean<T> {
+public class SyntheticProducerBeanImpl<T> implements Bean<T>, SyntheticProducerBeanMarker, InjectionPointsReplaceableBean {
 
     private final BeanAttributes<T> attributes;
     private final Class<?> beanClass;
@@ -88,6 +90,30 @@ public class SyntheticProducerBeanImpl<T> implements Bean<T> {
     @Override
     public Set<InjectionPoint> getInjectionPoints() {
         return producer.getInjectionPoints();
+    }
+
+    @Override
+    public Bean<?> withInjectionPoints(Set<InjectionPoint> injectionPoints) {
+        final Set<InjectionPoint> updatedInjectionPoints = injectionPoints != null
+                ? Collections.unmodifiableSet(new java.util.LinkedHashSet<>(injectionPoints))
+                : Collections.<InjectionPoint>emptySet();
+        Producer<T> wrappedProducer = new Producer<T>() {
+            @Override
+            public T produce(CreationalContext<T> creationalContext) {
+                return producer.produce(creationalContext);
+            }
+
+            @Override
+            public void dispose(T instance) {
+                producer.dispose(instance);
+            }
+
+            @Override
+            public Set<InjectionPoint> getInjectionPoints() {
+                return updatedInjectionPoints;
+            }
+        };
+        return new SyntheticProducerBeanImpl<>(attributes, beanClass, wrappedProducer);
     }
 
     // Delegate all BeanAttributes methods to the attributes

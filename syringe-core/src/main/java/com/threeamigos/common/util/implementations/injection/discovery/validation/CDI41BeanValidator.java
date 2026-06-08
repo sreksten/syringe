@@ -9,8 +9,7 @@ import com.threeamigos.common.util.implementations.injection.knowledgebase.Scope
 import com.threeamigos.common.util.implementations.injection.scopes.InjectionPointImpl;
 import com.threeamigos.common.util.implementations.injection.resolution.BeanImpl;
 import com.threeamigos.common.util.implementations.injection.resolution.ProducerBean;
-import com.threeamigos.common.util.implementations.injection.resolution.TypeChecker;
-import com.threeamigos.common.util.implementations.injection.types.RawTypeExtractor;
+import com.threeamigos.common.util.implementations.injection.types.TypeHelper;
 import jakarta.enterprise.inject.spi.Bean;
 import jakarta.enterprise.inject.spi.Annotated;
 import jakarta.enterprise.inject.spi.DefinitionException;
@@ -27,9 +26,8 @@ import java.util.stream.Collectors;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.*;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
+import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.*;
 import static com.threeamigos.common.util.implementations.injection.types.TypeClosureHelper.parameterizedDeclarationOf;
-import static com.threeamigos.common.util.implementations.injection.types.TypesHelper.containsTypeVariable;
-import static com.threeamigos.common.util.implementations.injection.types.TypesHelper.normalizeResolvedType;
 
 /**
  * Validates that a Java class is a CDI Managed Bean, according to CDI 4.1 rules.
@@ -55,7 +53,7 @@ public class CDI41BeanValidator {
 
     private final KnowledgeBase knowledgeBase;
     private final BeanTypesExtractor beanTypesExtractor;
-    private final TypeChecker typeChecker;
+    private final TypeHelper typeHelper;
     private final StereotypePriorityValidator stereotypePriorityValidator;
     private final BeanClassEligibilityValidator beanClassEligibilityValidator;
     private final BeanAttributesExtractor beanAttributesExtractor;
@@ -79,7 +77,7 @@ public class CDI41BeanValidator {
     public CDI41BeanValidator(KnowledgeBase knowledgeBase, boolean cdiFullLegacyInterceptionEnabled) {
         this.knowledgeBase = Objects.requireNonNull(knowledgeBase, "knowledgeBase cannot be null");
         this.beanTypesExtractor = new BeanTypesExtractor();
-        this.typeChecker = new TypeChecker();
+        this.typeHelper = new TypeHelper();
         this.stereotypePriorityValidator = new StereotypePriorityValidator(this::isScopeAnnotationType);
         this.beanClassEligibilityValidator = new BeanClassEligibilityValidator(this);
         this.beanAttributesExtractor = new BeanAttributesExtractor(knowledgeBase, this);
@@ -87,7 +85,7 @@ public class CDI41BeanValidator {
         this.injectionMetadataValidator = new InjectionMetadataValidator(knowledgeBase, this);
         this.producerDisposerValidator = new ProducerDisposerValidator(
                 knowledgeBase,
-                typeChecker,
+                typeHelper,
                 this,
                 specializingProducerMethodsBySpecializedSignature);
         this.beanRegistrationService = new BeanRegistrationService(
@@ -1818,7 +1816,7 @@ public class CDI41BeanValidator {
             throw new DefinitionException("injection point may not be a type variable (" + type.getTypeName() + ")");
         }
 
-        Class<?> raw = RawTypeExtractor.getRawType(type);
+        Class<?> raw = getRawType(type);
 
         if (raw.isEnum()) {
             throw new IllegalArgumentException("cannot inject an enum");
@@ -1997,7 +1995,7 @@ public class CDI41BeanValidator {
 
             boolean resolvable = true;
             for (Parameter parameter : constructor.getParameters()) {
-                Class<?> rawType = RawTypeExtractor.getRawType(baseTypeOf(parameter));
+                Class<?> rawType = getRawType(baseTypeOf(parameter));
                 if (rawType == null) {
                     resolvable = false;
                     break;

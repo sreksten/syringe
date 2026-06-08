@@ -5,13 +5,11 @@ import com.threeamigos.common.util.implementations.injection.annotations.Annotat
 import com.threeamigos.common.util.implementations.injection.knowledgebase.DecoratorInfo;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.InterceptorInfo;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.KnowledgeBase;
-import com.threeamigos.common.util.implementations.injection.types.RawTypeExtractor;
 import com.threeamigos.common.util.implementations.injection.types.TypeClosureHelper;
 import jakarta.enterprise.inject.spi.DefinitionException;
 import jakarta.enterprise.inject.spi.InjectionPoint;
 
 import java.lang.annotation.Annotation;
-import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -32,6 +30,7 @@ import java.util.Objects;
 import java.util.Set;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasInterceptorBindingAnnotation;
+import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.getRawType;
 
 /**
  * Extracted interceptor/decorator definition validation and registration rules.
@@ -795,7 +794,7 @@ public class InterceptorDecoratorDefinitionValidator {
 
     private Class<?> rawTypeOf(Type type) {
         try {
-            return RawTypeExtractor.getRawType(type);
+            return getRawType(type);
         } catch (IllegalArgumentException e) {
             return null;
         }

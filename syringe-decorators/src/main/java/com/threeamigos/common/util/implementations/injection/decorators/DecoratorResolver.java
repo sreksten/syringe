@@ -2,7 +2,6 @@ package com.threeamigos.common.util.implementations.injection.decorators;
 
 import com.threeamigos.common.util.implementations.injection.knowledgebase.DecoratorInfo;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.KnowledgeBase;
-import com.threeamigos.common.util.implementations.injection.types.RawTypeExtractor;
 import jakarta.annotation.Nonnull;
 import jakarta.enterprise.inject.spi.Bean;
 import jakarta.enterprise.inject.spi.Decorator;
@@ -20,6 +19,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
+import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.getRawType;
 
 /**
  * Resolves decorators for target beans based on type matching.
@@ -489,7 +489,7 @@ public class DecoratorResolver {
 
     private Class<?> safeRawType(Type type) {
         try {
-            return RawTypeExtractor.getRawType(type);
+            return getRawType(type);
         } catch (RuntimeException e) {
             return null;
         }

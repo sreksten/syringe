@@ -82,6 +82,16 @@ Core container runtime: `Syringe`, `BeanManagerImpl`, discovery/scanning, bean r
 
 Shared ByteBuddy-based proxy infrastructure used by feature modules (`client proxy`, `interceptor-aware proxy`, `decorator-aware proxy`). No CDI features semantics by itself.
 
+### `syringe-spi-support`
+
+Internal SPI support module (configurators, configured metadata wrappers, and synthetic SPI bean implementations).
+
+This module is not intended as a direct end-user dependency. It is used only as a dependency for:
+
+- `syringe-extensions`
+- `syringe-interceptors`
+- `syringe-bce`
+
 ### `syringe-scopes`
 
 Normal scopes and context management:
@@ -174,6 +184,8 @@ Then add only the necessary features, for example:
 - `syringe-bce` for build-compatible extensions
 - `syringe-legacy` for `@New`
 - `syringe-se` for `SeContainerInitializer` / `CDI.current()`
+
+Note: `syringe-spi-support` is internal and does not need to be added directly. It is pulled transitively by `syringe-extensions`, `syringe-interceptors`, and `syringe-bce`.
 
 ### 2) Bootstrap with Syringe API (works with `syringe-core`)
 

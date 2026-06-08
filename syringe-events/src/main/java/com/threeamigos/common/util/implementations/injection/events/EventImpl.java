@@ -9,13 +9,12 @@ import com.threeamigos.common.util.implementations.injection.knowledgebase.Knowl
 import com.threeamigos.common.util.implementations.injection.resolution.BeanImpl;
 import com.threeamigos.common.util.implementations.injection.resolution.BeanResolver;
 import com.threeamigos.common.util.implementations.injection.resolution.InstanceImpl;
-import com.threeamigos.common.util.implementations.injection.resolution.TypeChecker;
+import com.threeamigos.common.util.implementations.injection.types.TypeHelper;
 import com.threeamigos.common.util.implementations.injection.scopes.InjectionPointImpl;
 import com.threeamigos.common.util.implementations.injection.spi.BeanManagerImpl;
 import com.threeamigos.common.util.implementations.injection.annotations.AnnotationComparator;
 import com.threeamigos.common.util.implementations.injection.resolution.GenericTypeResolver;
 import com.threeamigos.common.util.implementations.injection.util.LifecycleMethodHelper;
-import com.threeamigos.common.util.implementations.injection.types.RawTypeExtractor;
 import com.threeamigos.common.util.implementations.injection.types.TypeClosureHelper;
 import com.threeamigos.common.util.implementations.injection.util.tx.TransactionServices;
 import com.threeamigos.common.util.implementations.injection.util.tx.NoOpTransactionServices;
@@ -66,6 +65,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.*;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
+import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.getRawType;
 
 /**
  * CDI 4.1 Event implementation for firing synchronous and asynchronous events.
@@ -113,7 +113,7 @@ public class EventImpl<T> implements Event<T>, Serializable {
     private final KnowledgeBase knowledgeBase;
     private final BeanResolver beanResolver;
     private final ContextManager contextManager;
-    private final TypeChecker typeChecker;
+    private final TypeHelper typeHelper;
     private final TransactionServices transactionServices;
     private final ContextTokenProvider tokenProvider;
     private final InjectionPoint firingInjectionPoint;
@@ -184,7 +184,7 @@ public class EventImpl<T> implements Event<T>, Serializable {
         this.knowledgeBase = Objects.requireNonNull(knowledgeBase, "knowledgeBase cannot be null");
         this.beanResolver = Objects.requireNonNull(beanResolver, "beanResolver cannot be null");
         this.contextManager = Objects.requireNonNull(contextManager, "contextManager cannot be null");
-        this.typeChecker = new TypeChecker();
+        this.typeHelper = new TypeHelper();
         this.transactionServices = Objects.requireNonNull(transactionServices, "transactionServices cannot be null");
         this.tokenProvider = new NoopContextTokenProvider();
         this.firingInjectionPoint = null;
@@ -200,7 +200,7 @@ public class EventImpl<T> implements Event<T>, Serializable {
         this.knowledgeBase = Objects.requireNonNull(knowledgeBase, "knowledgeBase cannot be null");
         this.beanResolver = Objects.requireNonNull(beanResolver, "beanResolver cannot be null");
         this.contextManager = Objects.requireNonNull(contextManager, "contextManager cannot be null");
-        this.typeChecker = new TypeChecker();
+        this.typeHelper = new TypeHelper();
         this.transactionServices = Objects.requireNonNull(transactionServices, "transactionServices cannot be null");
         this.tokenProvider = tokenProvider == null ? new NoopContextTokenProvider() : tokenProvider;
         this.firingInjectionPoint = null;
@@ -217,7 +217,7 @@ public class EventImpl<T> implements Event<T>, Serializable {
         this.knowledgeBase = Objects.requireNonNull(knowledgeBase, "knowledgeBase cannot be null");
         this.beanResolver = Objects.requireNonNull(beanResolver, "beanResolver cannot be null");
         this.contextManager = Objects.requireNonNull(contextManager, "contextManager cannot be null");
-        this.typeChecker = new TypeChecker();
+        this.typeHelper = new TypeHelper();
         this.transactionServices = Objects.requireNonNull(transactionServices, "transactionServices cannot be null");
         this.tokenProvider = tokenProvider == null ? new NoopContextTokenProvider() : tokenProvider;
         this.firingInjectionPoint = firingInjectionPoint;
@@ -234,7 +234,7 @@ public class EventImpl<T> implements Event<T>, Serializable {
         this.knowledgeBase = Objects.requireNonNull(knowledgeBase, "knowledgeBase cannot be null");
         this.beanResolver = Objects.requireNonNull(beanResolver, "beanResolver cannot be null");
         this.contextManager = Objects.requireNonNull(contextManager, "contextManager cannot be null");
-        this.typeChecker = new TypeChecker();
+        this.typeHelper = new TypeHelper();
         this.transactionServices = Objects.requireNonNull(transactionServices, "transactionServices cannot be null");
         this.tokenProvider = tokenProvider == null ? new NoopContextTokenProvider() : tokenProvider;
         this.firingInjectionPoint = firingInjectionPoint;
@@ -763,14 +763,14 @@ public class EventImpl<T> implements Event<T>, Serializable {
 
     private Map<TypeVariable<?>, Type> resolveRuntimeTypeVariables(Type selectedEventType, Set<Type> runtimeTypeClosure) {
         Map<TypeVariable<?>, Type> resolvedTypeVariables = new HashMap<>();
-        Class<?> selectedRawType = RawTypeExtractor.getRawType(selectedEventType);
+        Class<?> selectedRawType = getRawType(selectedEventType);
         if (selectedRawType == null) {
             return resolvedTypeVariables;
         }
 
         Type selectedTemplate = null;
         for (Type candidate : runtimeTypeClosure) {
-            Class<?> candidateRawType = RawTypeExtractor.getRawType(candidate);
+            Class<?> candidateRawType = getRawType(candidate);
             if (selectedRawType.equals(candidateRawType)) {
                 selectedTemplate = candidate;
                 break;
@@ -932,7 +932,7 @@ public class EventImpl<T> implements Event<T>, Serializable {
 
     private boolean isNotMatchingObservedType(Type observedType, Set<Type> eventDispatchTypes) {
         for (Type dispatchType : eventDispatchTypes) {
-            if (typeChecker.isEventTypeAssignable(observedType, dispatchType)) {
+            if (typeHelper.isEventTypeAssignable(observedType, dispatchType)) {
                 return false;
             }
         }
@@ -1477,7 +1477,7 @@ public class EventImpl<T> implements Event<T>, Serializable {
         Type fallbackMatch = null;
 
         for (Type dispatchType : dispatchTypes) {
-            Class<?> dispatchRawType = RawTypeExtractor.getRawType(dispatchType);
+            Class<?> dispatchRawType = getRawType(dispatchType);
             if (!runtimeType.equals(dispatchRawType)) {
                 continue;
             }

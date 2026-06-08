@@ -2,8 +2,9 @@ package com.threeamigos.common.util.implementations.injection.spi;
 
 import com.threeamigos.common.util.implementations.injection.resolution.BeanImpl;
 import com.threeamigos.common.util.implementations.injection.scopes.InjectionPointImpl;
-import com.threeamigos.common.util.implementations.injection.spi.configurators.AnnotatedTypeConfiguratorImpl;
 import com.threeamigos.common.util.implementations.injection.resolution.GenericTypeResolver;
+import com.threeamigos.common.util.implementations.injection.spi.support.SpiSupport;
+import com.threeamigos.common.util.implementations.injection.spi.support.SpiSupportLoader;
 import jakarta.enterprise.context.Dependent;
 import jakarta.enterprise.context.spi.CreationalContext;
 import jakarta.enterprise.inject.CreationException;
@@ -60,6 +61,7 @@ public class InjectionTargetFactoryImpl<T> implements InjectionTargetFactory<T> 
 
     private final AnnotatedType<T> annotatedType;
     private final BeanManager beanManager;
+    private final SpiSupport spiSupport;
     private AnnotatedTypeConfigurator<T> configurator;
     private boolean injectionTargetCreated;
 
@@ -72,6 +74,9 @@ public class InjectionTargetFactoryImpl<T> implements InjectionTargetFactory<T> 
     public InjectionTargetFactoryImpl(AnnotatedType<T> annotatedType, BeanManager beanManager) {
         this.annotatedType = annotatedType;
         this.beanManager = beanManager;
+        this.spiSupport = beanManager instanceof BeanManagerImpl
+                ? ((BeanManagerImpl) beanManager).getSpiSupport()
+                : SpiSupportLoader.load();
     }
 
     public static void beginContextualProduce() {
@@ -101,8 +106,8 @@ public class InjectionTargetFactoryImpl<T> implements InjectionTargetFactory<T> 
         injectionTargetCreated = true;
         // Get the configured type (if configure() was called)
         AnnotatedType<T> finalType = annotatedType;
-        if (configurator != null && configurator instanceof AnnotatedTypeConfiguratorImpl) {
-            finalType = ((AnnotatedTypeConfiguratorImpl<T>) configurator).complete();
+        if (configurator != null) {
+            finalType = spiSupport.completeAnnotatedTypeConfigurator(configurator);
         }
 
         return new InjectionTargetImpl<>(finalType, beanManager, bean);
@@ -121,7 +126,7 @@ public class InjectionTargetFactoryImpl<T> implements InjectionTargetFactory<T> 
             throw new IllegalStateException("configure() cannot be called after createInjectionTarget()");
         }
         if (configurator == null) {
-            configurator = new AnnotatedTypeConfiguratorImpl<>(annotatedType);
+            configurator = spiSupport.createAnnotatedTypeConfigurator(annotatedType);
         }
         return configurator;
     }

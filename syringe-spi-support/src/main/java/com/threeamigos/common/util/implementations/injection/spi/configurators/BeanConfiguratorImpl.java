@@ -3,7 +3,6 @@ package com.threeamigos.common.util.implementations.injection.spi.configurators;
 import com.threeamigos.common.util.implementations.injection.spi.SyntheticBean;
 import com.threeamigos.common.util.implementations.injection.spi.BeanManagerImpl;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.KnowledgeBase;
-import com.threeamigos.common.util.implementations.injection.types.RawTypeExtractor;
 import com.threeamigos.common.util.interfaces.messagehandler.MessageHandler;
 import jakarta.enterprise.context.Dependent;
 import jakarta.enterprise.context.spi.CreationalContext;
@@ -19,6 +18,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
+import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.getRawType;
 
 /**
  * Implementation of BeanConfigurator for building synthetic beans programmatically.
@@ -500,7 +500,7 @@ public class BeanConfiguratorImpl<T> implements BeanConfigurator<T> {
     private Class<?> inferBeanClassFromTypes() {
         Class<?> fallback = null;
         for (Type type : types) {
-            Class<?> rawType = RawTypeExtractor.getRawType(type);
+            Class<?> rawType = getRawType(type);
             if (rawType == null) {
                 continue;
             }

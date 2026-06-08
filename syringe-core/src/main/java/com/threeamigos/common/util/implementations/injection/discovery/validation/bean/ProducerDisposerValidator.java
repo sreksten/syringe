@@ -2,7 +2,7 @@ package com.threeamigos.common.util.implementations.injection.discovery.validati
 
 import com.threeamigos.common.util.implementations.injection.discovery.validation.CDI41BeanValidator;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.KnowledgeBase;
-import com.threeamigos.common.util.implementations.injection.resolution.TypeChecker;
+import com.threeamigos.common.util.implementations.injection.types.TypeHelper;
 import jakarta.enterprise.inject.spi.DefinitionException;
 
 import java.lang.annotation.Annotation;
@@ -26,16 +26,16 @@ import static com.threeamigos.common.util.implementations.injection.annotations.
  */
 public class ProducerDisposerValidator {
     private final KnowledgeBase knowledgeBase;
-    private final TypeChecker typeChecker;
+    private final TypeHelper typeHelper;
     private final CDI41BeanValidator validator;
     private final Map<String, Method> specializingProducerMethodsBySpecializedSignature;
 
     public ProducerDisposerValidator(KnowledgeBase knowledgeBase,
-                              TypeChecker typeChecker,
+                              TypeHelper typeHelper,
                               CDI41BeanValidator validator,
                               Map<String, Method> specializingProducerMethodsBySpecializedSignature) {
         this.knowledgeBase = Objects.requireNonNull(knowledgeBase, "knowledgeBase cannot be null");
-        this.typeChecker = Objects.requireNonNull(typeChecker, "typeChecker cannot be null");
+        this.typeHelper = Objects.requireNonNull(typeHelper, "typeChecker cannot be null");
         this.validator = Objects.requireNonNull(validator, "validator cannot be null");
         this.specializingProducerMethodsBySpecializedSignature = Objects.requireNonNull(
                 specializingProducerMethodsBySpecializedSignature,
@@ -462,7 +462,7 @@ public class ProducerDisposerValidator {
 
         Type disposesType = validator.baseTypeOf(disposesParameter);
         try {
-            return typeChecker.isAssignable(disposesType, producerType);
+            return typeHelper.isAssignable(disposesType, producerType);
         } catch (DefinitionException e) {
             return false;
         } catch (IllegalStateException e) {

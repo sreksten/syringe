@@ -7,7 +7,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import static com.threeamigos.common.util.implementations.injection.resolution.TypeChecker.TypePair;
+import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.TypePair;
 
 @DisplayName("TypePair unit tests")
 class TypePairUnitTest {

@@ -15,6 +15,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.getRawType;
+
 /**
  * Shared helpers for extracting unrestricted type closures used by CDI components.
  */
@@ -51,7 +53,7 @@ public final class TypeClosureHelper {
         Objects.requireNonNull(baseType, "baseType cannot be null");
 
         Set<Type> types = new LinkedHashSet<>();
-        Class<?> rawType = RawTypeExtractor.getRawType(baseType);
+        Class<?> rawType = getRawType(baseType);
 
         // CDI 4.1 §3.2.1: for primitive and Java array producer return types,
         // unrestricted bean types are exactly the return type and Object.
@@ -86,7 +88,7 @@ public final class TypeClosureHelper {
                                            Set<String> visited,
                                            boolean preserveCurrentRawTypeVariables) {
         Type resolvedType = resolveType(type, inheritedBindings);
-        Class<?> rawType = RawTypeExtractor.getRawType(resolvedType);
+        Class<?> rawType = getRawType(resolvedType);
 
         if (rawType == Object.class) {
             return;

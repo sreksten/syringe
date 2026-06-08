@@ -3,6 +3,8 @@ package com.threeamigos.common.util.implementations.injection.annotations;
 import com.threeamigos.common.util.implementations.injection.beansxml.BeansXml;
 import com.threeamigos.common.util.implementations.injection.types.TypeClosureHelper;
 import jakarta.annotation.Nonnull;
+import jakarta.enterprise.event.Observes;
+import jakarta.enterprise.event.ObservesAsync;
 import jakarta.enterprise.inject.build.compatible.spi.Enhancement;
 import jakarta.enterprise.inject.build.compatible.spi.Registration;
 import jakarta.enterprise.inject.build.compatible.spi.SkipIfPortableExtensionPresent;
@@ -28,6 +30,202 @@ public class AnnotationsHelper {
 
     private AnnotationsHelper() {
     }
+
+    // Simplest methods
+
+    public static boolean hasActivateRequestContextAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.ACTIVATE_REQUEST_CONTEXT.isPresent(element);
+    }
+
+    public static boolean hasAlternativeAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.ALTERNATIVE.isPresent(element);
+    }
+
+    public static boolean hasAnyAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.ANY.isPresent(element);
+    }
+
+    public static boolean hasApplicationScopedAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.APPLICATION_SCOPED.isPresent(element);
+    }
+
+    public static boolean hasAroundConstructAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.AROUND_CONSTRUCT.isPresent(element);
+    }
+
+    public static boolean hasAroundInvokeAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.AROUND_INVOKE.isPresent(element);
+    }
+
+    public static boolean hasConversationScopedAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.CONVERSATION_SCOPED.isPresent(element);
+    }
+
+    public static boolean hasDecoratedAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.DECORATED.isPresent(element);
+    }
+
+    public static boolean hasDecoratorAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.DECORATOR.isPresent(element);
+    }
+
+    public static boolean hasDefaultAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.DEFAULT.isPresent(element);
+    }
+
+    public static boolean hasDelegateAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.DELEGATE.isPresent(element);
+    }
+
+    public static boolean hasDependentAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.DEPENDENT.isPresent(element);
+    }
+
+    public static boolean hasDestroyedAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.DESTROYED.isPresent(element);
+    }
+
+    public static boolean hasDiscoveryAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.DISCOVERY.isPresent(element);
+    }
+
+    public static boolean hasDisposesAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.DISPOSES.isPresent(element);
+    }
+
+    public static boolean hasEnhancementAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.ENHANCEMENT.isPresent(element);
+    }
+
+    public static boolean hasExcludeClassInterceptorsAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.EXCLUDE_CLASS_INTERCEPTORS.isPresent(element);
+    }
+
+    public static boolean hasInheritedAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.INHERITED.isPresent(element);
+    }
+
+    public static boolean hasInitializedAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.INITIALIZED.isPresent(element);
+    }
+
+    public static boolean hasInjectAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.INJECT.isPresent(element);
+    }
+
+    public static boolean hasInterceptedAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.INTERCEPTED.isPresent(element);
+    }
+
+    public static boolean hasInterceptorAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.INTERCEPTOR.isPresent(element);
+    }
+
+    public static boolean hasInterceptorBindingAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.INTERCEPTOR_BINDING.isPresent(element) || DynamicAnnotationRegistry.hasDynamicInterceptorBinding(element);
+    }
+
+    public static boolean hasNamedAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.NAMED.isPresent(element);
+    }
+
+    public static boolean hasNewAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.NEW.isPresent(element);
+    }
+
+    public static boolean hasNormalScopeAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.NORMAL_SCOPE.isPresent(element);
+    }
+
+    public static boolean hasObservesAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.OBSERVES.isPresent(element);
+    }
+
+    public static boolean hasObservesAsyncAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.OBSERVES_ASYNC.isPresent(element);
+    }
+
+    public static boolean hasPostConstructAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.POST_CONSTRUCT.isPresent(element);
+    }
+
+    public static boolean hasPreDestroyAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.PRE_DESTROY.isPresent(element);
+    }
+
+    public static boolean hasPriorityAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.PRIORITY.isPresent(element);
+    }
+
+    public static boolean hasProducesAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.PRODUCES.isPresent(element);
+    }
+
+    public static boolean hasQualifierAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.QUALIFIER.isPresent(element) || DynamicAnnotationRegistry.hasDynamicQualifier(element);
+    }
+
+    public static boolean hasRegistrationAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.REGISTRATION.isPresent(element);
+    }
+
+    public static boolean hasRequestScopedAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.REQUEST_SCOPED.isPresent(element);
+    }
+
+    public static boolean hasRepeatableAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.REPEATABLE.isPresent(element);
+    }
+
+    public static boolean hasScopeAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.SCOPE.isPresent(element) || DynamicAnnotationRegistry.hasDynamicScope(element);
+    }
+
+    public static boolean hasSessionScopedAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.SESSION_SCOPED.isPresent(element);
+    }
+
+    public static boolean hasSingletonAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.SINGLETON.isPresent(element);
+    }
+
+    public static boolean hasSpecializesAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.SPECIALIZES.isPresent(element);
+    }
+
+    public static boolean hasStereotypeAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.STEREOTYPE.isPresent(element) || DynamicAnnotationRegistry.hasDynamicStereotype(element);
+    }
+
+    public static boolean hasSynthesisAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.SYNTHESIS.isPresent(element);
+    }
+
+    public static boolean hasTargetAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.TARGET.isPresent(element);
+    }
+
+    public static boolean hasTransientReferenceAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.TRANSIENT_REFERENCE.isPresent(element);
+    }
+
+    public static boolean hasTypedAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.TYPED.isPresent(element);
+    }
+
+    public static boolean hasValidationAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.VALIDATION.isPresent(element);
+    }
+
+    public static boolean hasVetoedAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.VETOED.isPresent(element);
+    }
+
+    public static boolean hasWithAnnotationsAnnotation(AnnotatedElement element) {
+        return AnnotationsEnum.WITH_ANNOTATIONS.isPresent(element);
+    }
+
+    // Other utility methods
 
     @Nonnull
     public static String toList(Collection<Annotation> annotationDef) {
@@ -86,9 +284,7 @@ public class AnnotationsHelper {
         if (method == null) {
             return false;
         }
-        Annotation[] annotations = override != null
-                ? AnnotationsHelper.annotationsOf(override, method)
-                : method.getAnnotations();
+        Annotation[] annotations = override != null ? annotationsOf(override, method) : method.getAnnotations();
         return hasAnnotation(annotations, AnnotationsEnum.AROUND_INVOKE);
     }
 
@@ -169,7 +365,7 @@ public class AnnotationsHelper {
             return false;
         }
         for (Annotation annotation : annotations) {
-            if (annotation != null && AnnotationsHelper.hasInjectAnnotation(annotation.annotationType())) {
+            if (annotation != null && hasInjectAnnotation(annotation.annotationType())) {
                 return true;
             }
         }
@@ -177,8 +373,7 @@ public class AnnotationsHelper {
     }
 
     public static boolean isScopeOrNormalScopeAnnotation(Class<? extends Annotation> annotationType) {
-        return AnnotationsHelper.hasScopeAnnotation(annotationType)
-                || AnnotationsHelper.hasNormalScopeAnnotation(annotationType);
+        return hasScopeAnnotation(annotationType) || hasNormalScopeAnnotation(annotationType);
     }
 
     public static boolean isCdiInheritableTypeAnnotation(Class<? extends Annotation> annotationType) {
@@ -188,9 +383,9 @@ public class AnnotationsHelper {
         if (isScopeOrNormalScopeAnnotation(annotationType)) {
             return true;
         }
-        return AnnotationsHelper.hasQualifierAnnotation(annotationType)
-                || AnnotationsHelper.hasStereotypeAnnotation(annotationType)
-                || AnnotationsHelper.hasInterceptorBindingAnnotation(annotationType);
+        return hasQualifierAnnotation(annotationType)
+                || hasStereotypeAnnotation(annotationType)
+                || hasInterceptorBindingAnnotation(annotationType);
     }
 
     public static String readNamedValue(Annotation namedAnnotation) {
@@ -379,10 +574,10 @@ public class AnnotationsHelper {
                 || element instanceof Parameter;
     }
 
-    public static jakarta.enterprise.event.Observes getObservesAnnotationFrom(Annotation[] annotations) {
+    public static Observes getObservesAnnotationFrom(Annotation[] annotations) {
         for (Annotation annotation : annotations) {
-            if (annotation instanceof jakarta.enterprise.event.Observes) {
-                return (jakarta.enterprise.event.Observes) annotation;
+            if (annotation instanceof Observes) {
+                return (Observes) annotation;
             }
         }
         return null;
@@ -392,10 +587,10 @@ public class AnnotationsHelper {
         return getObservesAsyncAnnotationFrom(annotations) != null;
     }
 
-    public static jakarta.enterprise.event.ObservesAsync getObservesAsyncAnnotationFrom(Annotation[] annotations) {
+    public static ObservesAsync getObservesAsyncAnnotationFrom(Annotation[] annotations) {
         for (Annotation annotation : annotations) {
-            if (annotation instanceof jakarta.enterprise.event.ObservesAsync) {
-                return (jakarta.enterprise.event.ObservesAsync) annotation;
+            if (annotation instanceof ObservesAsync) {
+                return (ObservesAsync) annotation;
             }
         }
         return null;
@@ -550,32 +745,12 @@ public class AnnotationsHelper {
         return false;
     }
 
-    public static boolean hasInjectAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.INJECT.isPresent(element);
-    }
-
-    public static boolean hasSingletonAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.SINGLETON.isPresent(element);
-    }
-
     public static Class<? extends Annotation> normalizeSingletonToApplicationScoped(
             @Nonnull Class<? extends Annotation> scopeType) {
         if (hasSingletonAnnotation(scopeType)) {
             return jakarta.enterprise.context.ApplicationScoped.class;
         }
         return scopeType;
-    }
-
-    public static boolean hasNamedAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.NAMED.isPresent(element);
-    }
-
-    public static boolean hasQualifierAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.QUALIFIER.isPresent(element) || DynamicAnnotationRegistry.hasDynamicQualifier(element);
-    }
-
-    public static boolean hasScopeAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.SCOPE.isPresent(element) || DynamicAnnotationRegistry.hasDynamicScope(element);
     }
 
     public static boolean hasNonbindingAnnotation(AnnotatedElement element) {
@@ -598,111 +773,6 @@ public class AnnotationsHelper {
         return DynamicAnnotationRegistry.hasDynamicNonbindingMember(annotationType, method.getName());
     }
 
-    public static boolean hasPostConstructAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.POST_CONSTRUCT.isPresent(element);
-    }
-
-    public static boolean hasPreDestroyAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.PRE_DESTROY.isPresent(element);
-    }
-
-    public static boolean hasPriorityAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.PRIORITY.isPresent(element);
-    }
-
-    public static boolean hasAlternativeAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.ALTERNATIVE.isPresent(element);
-    }
-
-    public static boolean hasAnyAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.ANY.isPresent(element);
-    }
-
-    public static boolean hasDefaultAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.DEFAULT.isPresent(element);
-    }
-
-    public static boolean hasProducesAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.PRODUCES.isPresent(element);
-    }
-
-    public static boolean hasDisposesAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.DISPOSES.isPresent(element);
-    }
-
-    public static boolean hasVetoedAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.VETOED.isPresent(element);
-    }
-
-    public static boolean hasTypedAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.TYPED.isPresent(element);
-    }
-
-    public static boolean hasStereotypeAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.STEREOTYPE.isPresent(element) || DynamicAnnotationRegistry.hasDynamicStereotype(element);
-    }
-
-    public static boolean hasSpecializesAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.SPECIALIZES.isPresent(element);
-    }
-
-    public static boolean hasNewAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.NEW.isPresent(element);
-    }
-
-    public static boolean hasInterceptedAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.INTERCEPTED.isPresent(element);
-    }
-
-    public static boolean hasDecoratedAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.DECORATED.isPresent(element);
-    }
-
-    public static boolean hasTransientReferenceAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.TRANSIENT_REFERENCE.isPresent(element);
-    }
-
-    public static boolean hasDecoratorAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.DECORATOR.isPresent(element);
-    }
-
-    public static boolean hasDelegateAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.DELEGATE.isPresent(element);
-    }
-
-    public static boolean hasInterceptorAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.INTERCEPTOR.isPresent(element);
-    }
-
-    public static boolean hasInterceptorBindingAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.INTERCEPTOR_BINDING.isPresent(element)
-                || DynamicAnnotationRegistry.hasDynamicInterceptorBinding(element);
-    }
-
-    public static boolean hasExcludeClassInterceptorsAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.EXCLUDE_CLASS_INTERCEPTORS.isPresent(element);
-    }
-
-    public static boolean hasDependentAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.DEPENDENT.isPresent(element);
-    }
-
-    public static boolean hasApplicationScopedAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.APPLICATION_SCOPED.isPresent(element);
-    }
-
-    public static boolean hasRequestScopedAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.REQUEST_SCOPED.isPresent(element);
-    }
-
-    public static boolean hasSessionScopedAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.SESSION_SCOPED.isPresent(element);
-    }
-
-    public static boolean hasConversationScopedAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.CONVERSATION_SCOPED.isPresent(element);
-    }
-
     public static boolean hasBuiltInNormalScopeAnnotation(AnnotatedElement element) {
         return hasApplicationScopedAnnotation(element)
                 || hasRequestScopedAnnotation(element)
@@ -712,26 +782,6 @@ public class AnnotationsHelper {
 
     public static boolean hasBuiltInPassivatingScopeAnnotation(AnnotatedElement element) {
         return hasSessionScopedAnnotation(element) || hasConversationScopedAnnotation(element);
-    }
-
-    public static boolean hasNormalScopeAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.NORMAL_SCOPE.isPresent(element);
-    }
-
-    public static boolean hasInitializedAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.INITIALIZED.isPresent(element);
-    }
-
-    public static boolean hasDestroyedAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.DESTROYED.isPresent(element);
-    }
-
-    public static boolean hasObservesAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.OBSERVES.isPresent(element);
-    }
-
-    public static boolean hasObservesAsyncAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.OBSERVES_ASYNC.isPresent(element);
     }
 
     public static boolean isStartupEventTypeName(String typeName) {
@@ -746,54 +796,6 @@ public class AnnotationsHelper {
 
     public static boolean isContainerLifecyclePayloadTypeName(String typeName) {
         return isStartupEventTypeName(typeName) || isShutdownEventTypeName(typeName);
-    }
-
-    public static boolean hasAroundInvokeAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.AROUND_INVOKE.isPresent(element);
-    }
-
-    public static boolean hasAroundConstructAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.AROUND_CONSTRUCT.isPresent(element);
-    }
-
-    public static boolean hasWithAnnotationsAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.WITH_ANNOTATIONS.isPresent(element);
-    }
-
-    public static boolean hasActivateRequestContextAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.ACTIVATE_REQUEST_CONTEXT.isPresent(element);
-    }
-
-    public static boolean hasInheritedAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.INHERITED.isPresent(element);
-    }
-
-    public static boolean hasTargetAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.TARGET.isPresent(element);
-    }
-
-    public static boolean hasRepeatableAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.REPEATABLE.isPresent(element);
-    }
-
-    public static boolean hasDiscoveryAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.DISCOVERY.isPresent(element);
-    }
-
-    public static boolean hasEnhancementAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.ENHANCEMENT.isPresent(element);
-    }
-
-    public static boolean hasRegistrationAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.REGISTRATION.isPresent(element);
-    }
-
-    public static boolean hasSynthesisAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.SYNTHESIS.isPresent(element);
-    }
-
-    public static boolean hasValidationAnnotation(AnnotatedElement element) {
-        return AnnotationsEnum.VALIDATION.isPresent(element);
     }
 
     public static boolean declaresAlternative(Class<? extends Annotation> stereotypeType) {
@@ -1105,6 +1107,19 @@ public class AnnotationsHelper {
         return null;
     }
 
+    public static Integer getPriorityValue(AnnotatedElement element) {
+        Annotation priority = getPriorityAnnotation(element);
+        if (priority == null) {
+            return null;
+        }
+        try {
+            Object value = priority.annotationType().getMethod("value").invoke(priority);
+            return value instanceof Integer ? (Integer) value : null;
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
     public static <T extends Annotation> T getTypedAnnotation(AnnotatedElement element) {
         return getFirstAnnotation(element, AnnotationsEnum.TYPED);
     }
@@ -1157,19 +1172,6 @@ public class AnnotationsHelper {
             return null;
         }
         return element.getAnnotation(SkipIfPortableExtensionPresent.class);
-    }
-
-    public static Integer getPriorityValue(AnnotatedElement element) {
-        Annotation priority = getPriorityAnnotation(element);
-        if (priority == null) {
-            return null;
-        }
-        try {
-            Object value = priority.annotationType().getMethod("value").invoke(priority);
-            return value instanceof Integer ? (Integer) value : null;
-        } catch (Exception ignored) {
-            return null;
-        }
     }
 
     public static Boolean getNormalScopePassivatingValue(AnnotatedElement element) {

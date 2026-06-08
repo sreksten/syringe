@@ -1,6 +1,6 @@
 package com.threeamigos.common.util.implementations.injection.events;
 
-import com.threeamigos.common.util.implementations.injection.resolution.TypeChecker;
+import com.threeamigos.common.util.implementations.injection.types.TypeHelper;
 import jakarta.enterprise.event.Reception;
 import jakarta.enterprise.event.TransactionPhase;
 import jakarta.enterprise.inject.spi.Bean;
@@ -41,8 +41,8 @@ public interface ObserverMethodMetadata {
     }
 
     default boolean matches(Type eventType, Set<Annotation> eventQualifiers) {
-        TypeChecker typeChecker = new TypeChecker();
-        if (!typeChecker.isAssignable(getEventType(), eventType)) {
+        TypeHelper typeHelper = new TypeHelper();
+        if (!typeHelper.isAssignable(getEventType(), eventType)) {
             return false;
         }
         return eventQualifiers.containsAll(getQualifiers());

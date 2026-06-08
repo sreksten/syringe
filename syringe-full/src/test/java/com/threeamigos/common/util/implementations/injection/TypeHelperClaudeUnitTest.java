@@ -1,6 +1,6 @@
 package com.threeamigos.common.util.implementations.injection;
 
-import com.threeamigos.common.util.implementations.injection.resolution.TypeChecker;
+import com.threeamigos.common.util.implementations.injection.types.TypeHelper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -11,6 +11,7 @@ import java.io.Serializable;
 import java.lang.reflect.*;
 import java.util.*;
 
+import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.getRawType;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 
@@ -18,11 +19,11 @@ import static org.mockito.ArgumentMatchers.any;
  * Comprehensive unit tests for TypeChecker class covering 100% code coverage.
  * Tests focus on JSR 330/346 compliance for injection point validation and type assignability.
  */
-class TypeCheckerClaudeUnitTest {
+class TypeHelperClaudeUnitTest {
 
     interface Provider<T> {}
 
-    private final TypeChecker sut = new TypeChecker();
+    private final TypeHelper sut = new TypeHelper();
 
     @Nested
     @DisplayName("validateInjectionPoint - JSR 330/346 Compliance Tests")
@@ -206,7 +207,7 @@ class TypeCheckerClaudeUnitTest {
         @Test
         @DisplayName("Should cache resolved types")
         void testCacheResolvedTypes() {
-            TypeChecker checker = new TypeChecker();
+            TypeHelper checker = new TypeHelper();
             assertTrue(checker.isAssignable(String.class, String.class));
             // second call should hit cache silently (cannot verify without Mockito here)
             assertTrue(checker.isAssignable(String.class, String.class));
@@ -2676,5 +2677,68 @@ class TypeCheckerClaudeUnitTest {
             // The exception at line 70 provides fail-fast behavior if the Java type system
             // is extended or bytecode manipulation creates unusual Type instances
         }
+    }
+
+    @Test
+    @DisplayName("getRawType should return the class when input is a Class")
+    void shouldReturnClassWhenInputIsClass() {
+        assertEquals(String.class, getRawType(String.class));
+        assertEquals(Integer.class, getRawType(Integer.class));
+    }
+
+    @Test
+    @DisplayName("getRawType should return the raw type when input is a ParameterizedType")
+    void shouldReturnRawTypeWhenInputIsParameterizedType() {
+        Type type = new TypeLiteral<List<String>>() {}.getType();
+        assertEquals(List.class, getRawType(type));
+    }
+
+    @Test
+    @DisplayName("getRawType should return the array class when input is a GenericArrayType")
+    void shouldReturnArrayClassWhenInputIsGenericArrayType() {
+        // List<String>[]
+        Type componentType = new TypeLiteral<List<String>>() {}.getType();
+        GenericArrayType genericArrayType = () -> componentType;
+
+        Class<?> rawType = getRawType(genericArrayType);
+        assertTrue(rawType.isArray());
+        assertEquals(List.class, rawType.getComponentType());
+    }
+
+    @Test
+    @DisplayName("getRawType should return the bound when input is a TypeVariable")
+    @SuppressWarnings("unused")
+    <T extends Number> void shouldReturnBoundWhenInputIsTypeVariable() throws NoSuchMethodException {
+        Method method = TypeHelperClaudeUnitTest.class.getDeclaredMethod("shouldReturnBoundWhenInputIsTypeVariable");
+        TypeVariable<?> typeVariable = method.getTypeParameters()[0];
+
+        assertEquals(Number.class, getRawType(typeVariable));
+    }
+
+    @Test
+    @DisplayName("getRawType should return the upper bound when input is a WildcardType")
+    void shouldReturnUpperBoundWhenInputIsWildcardType() {
+        // List<? extends Number>
+        ParameterizedType listType = (ParameterizedType) new TypeLiteral<List<? extends Number>>() {}.getType();
+        WildcardType wildcardType = (WildcardType) listType.getActualTypeArguments()[0];
+
+        assertEquals(Number.class, getRawType(wildcardType));
+    }
+
+    @Test
+    @DisplayName("getRawType should throw IllegalArgumentException for unsupported types")
+    void shouldThrowExceptionForUnsupportedType() {
+        Type unsupportedType = new Type() {
+            @Override
+            public String getTypeName() {
+                return "Unsupported";
+            }
+        };
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
+                getRawType(unsupportedType)
+        );
+
+        assertTrue(exception.getMessage().contains("Unsupported type"));
     }
 }

@@ -2,7 +2,6 @@ package com.threeamigos.common.util.implementations.injection.discovery;
 
 import com.threeamigos.common.util.implementations.injection.util.SimpleParameterizedType;
 import com.threeamigos.common.util.implementations.injection.types.TypeClosureHelper;
-import com.threeamigos.common.util.implementations.injection.types.RawTypeExtractor;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.GenericArrayType;
@@ -21,6 +20,7 @@ import java.util.Set;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.getTypedAnnotation;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasTypedAnnotation;
+import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.getRawType;
 
 /**
  * Extracts bean type sets for managed beans and producers.
@@ -69,7 +69,7 @@ public final class BeanTypesExtractor {
 
         List<String> definitionErrors = new ArrayList<>();
         Set<Type> unrestrictedTypes = TypeClosureHelper.extractTypesFromType(producerType);
-        Class<?> producerRawType = RawTypeExtractor.getRawType(producerType);
+        Class<?> producerRawType = getRawType(producerType);
         if (producerType instanceof ParameterizedType
                 && shouldAddRawProducerType((ParameterizedType) producerType, producerRawType)) {
             unrestrictedTypes.add(producerRawType);
@@ -209,7 +209,7 @@ public final class BeanTypesExtractor {
                 }
                 boolean matched = false;
                 for (Type unrestricted : unrestrictedTypes) {
-                    Class<?> unrestrictedRaw = RawTypeExtractor.getRawType(unrestricted);
+                    Class<?> unrestrictedRaw = getRawType(unrestricted);
                     if (typedClass.equals(unrestrictedRaw)) {
                         types.add(unrestricted);
                         matched = true;

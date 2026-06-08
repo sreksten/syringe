@@ -11,12 +11,12 @@ import com.threeamigos.common.util.implementations.injection.scopes.ContextManag
 import com.threeamigos.common.util.implementations.injection.scopes.ScopeContext;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.KnowledgeBase;
 import com.threeamigos.common.util.implementations.injection.spi.BeanManagerImpl;
-import com.threeamigos.common.util.implementations.injection.spi.SyntheticBean;
-import com.threeamigos.common.util.implementations.injection.spi.SyntheticProducerBeanImpl;
 import com.threeamigos.common.util.implementations.injection.spi.configured.ConfiguredInjectionPoint;
-import com.threeamigos.common.util.implementations.injection.types.RawTypeExtractor;
+import com.threeamigos.common.util.implementations.injection.spi.support.SyntheticBeanPriority;
+import com.threeamigos.common.util.implementations.injection.spi.support.SyntheticProducerBeanMarker;
 import com.threeamigos.common.util.implementations.injection.annotations.legacy.LegacyNewSupport;
 import com.threeamigos.common.util.implementations.injection.annotations.legacy.NoOpLegacyNewSupport;
+import com.threeamigos.common.util.implementations.injection.types.TypeHelper;
 import com.threeamigos.common.util.implementations.injection.util.tx.NoOpTransactionServices;
 import com.threeamigos.common.util.implementations.injection.util.tx.TransactionServices;
 import com.threeamigos.common.util.implementations.injection.util.LifecycleMethodHelper;
@@ -39,17 +39,14 @@ import jakarta.inject.Provider;
 
 import java.lang.annotation.Annotation;
 import java.io.Serializable;
-import java.lang.reflect.Member;
-import java.lang.reflect.Modifier;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
+import java.lang.reflect.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.*;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
+import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.getRawType;
+import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.normalizePrimitive;
 
 /**
  * Resolves dependencies by finding matching beans from the KnowledgeBase.
@@ -69,7 +66,7 @@ public class BeanResolver implements DependencyResolver {
 
     private final KnowledgeBase knowledgeBase;
     private final ContextManager contextManager;
-    private final TypeChecker typeChecker;
+    private final TypeHelper typeHelper;
     private TransactionServices transactionServices;
     private volatile ObserverSupport observerSupport;
     private volatile BeanManagerImpl owningBeanManager;
@@ -87,7 +84,7 @@ public class BeanResolver implements DependencyResolver {
     public BeanResolver(KnowledgeBase knowledgeBase, ContextManager contextManager, TransactionServices transactionServices) {
         this.knowledgeBase = Objects.requireNonNull(knowledgeBase, "knowledgeBase cannot be null");
         this.contextManager = Objects.requireNonNull(contextManager, "contextManager cannot be null");
-        this.typeChecker = new TypeChecker();
+        this.typeHelper = new TypeHelper();
         this.transactionServices = transactionServices == null ? new NoOpTransactionServices() : transactionServices;
         this.decoratorSupport = new NoOpDecoratorSupport();
         this.legacyNewSupport = new NoOpLegacyNewSupport();
@@ -178,7 +175,7 @@ public class BeanResolver implements DependencyResolver {
             // Check if it's a Provider<T> (which includes Instance<T>)
             if (Provider.class.isAssignableFrom(rawType)) {
                 Type actualType = pt.getActualTypeArguments()[0];
-                Class<?> actualClass = RawTypeExtractor.getRawType(actualType);
+                Class<?> actualClass = getRawType(actualType);
                 Set<Annotation> requiredQualifiers = extractQualifiers(effectiveQualifiers);
 
                 return createProviderWrapper(actualClass, new ArrayList<>(requiredQualifiers));
@@ -330,7 +327,7 @@ public class BeanResolver implements DependencyResolver {
                 if (notSameRawType(requiredType, beanType)) {
                     continue;
                 }
-                if (typeChecker.isLookupTypeAssignable(requiredType, beanType)) {
+                if (typeHelper.isLookupTypeAssignable(requiredType, beanType)) {
                     typeMatches = true;
                     break;
                 }
@@ -384,7 +381,7 @@ public class BeanResolver implements DependencyResolver {
                 if (notSameRawType(requiredType, beanType)) {
                     continue;
                 }
-                if (typeChecker.isLookupTypeAssignable(requiredType, beanType)) {
+                if (typeHelper.isLookupTypeAssignable(requiredType, beanType)) {
                     typeMatches = true;
                     break;
                 }
@@ -499,16 +496,16 @@ public class BeanResolver implements DependencyResolver {
         if (requiredType == null || beanType == null) {
             return true;
         }
-        if (requiredType instanceof java.lang.reflect.TypeVariable ||
-                requiredType instanceof java.lang.reflect.WildcardType) {
+        if (requiredType instanceof TypeVariable ||
+                requiredType instanceof WildcardType) {
             return false;
         }
 
         Class<?> requiredRaw;
         Class<?> beanRaw;
         try {
-            requiredRaw = normalizePrimitiveType(RawTypeExtractor.getRawType(requiredType));
-            beanRaw = normalizePrimitiveType(RawTypeExtractor.getRawType(beanType));
+            requiredRaw = normalizePrimitive(getRawType(requiredType));
+            beanRaw = normalizePrimitive(getRawType(beanType));
         } catch (RuntimeException e) {
             return false;
         }
@@ -517,22 +514,6 @@ public class BeanResolver implements DependencyResolver {
             return false;
         }
         return !requiredRaw.equals(beanRaw);
-    }
-
-    private Class<?> normalizePrimitiveType(Class<?> type) {
-        if (type == null || !type.isPrimitive()) {
-            return type;
-        }
-        if (type == int.class) return Integer.class;
-        if (type == long.class) return Long.class;
-        if (type == double.class) return Double.class;
-        if (type == float.class) return Float.class;
-        if (type == boolean.class) return Boolean.class;
-        if (type == char.class) return Character.class;
-        if (type == byte.class) return Byte.class;
-        if (type == short.class) return Short.class;
-        if (type == void.class) return Void.class;
-        return type;
     }
 
     /**
@@ -773,8 +754,8 @@ public class BeanResolver implements DependencyResolver {
             }
         }
 
-        if (bean instanceof SyntheticBean) {
-            Integer syntheticPriority = ((SyntheticBean<?>) bean).getPriority();
+        if (bean instanceof SyntheticBeanPriority) {
+            Integer syntheticPriority = ((SyntheticBeanPriority) bean).getPriority();
             if (syntheticPriority != null) {
                 return syntheticPriority;
             }
@@ -857,7 +838,7 @@ public class BeanResolver implements DependencyResolver {
             }
             return producerBean.isAlternativeEnabled();
         }
-        if (bean instanceof SyntheticProducerBeanImpl) {
+        if (bean instanceof SyntheticProducerBeanMarker) {
             Bean<?> originalBean = findOriginalProducerBean(bean);
             if (originalBean instanceof ProducerBean) {
                 return isBeanEnabledForResolution(originalBean);
@@ -866,8 +847,8 @@ public class BeanResolver implements DependencyResolver {
         if (!bean.isAlternative()) {
             return true;
         }
-        if (bean instanceof SyntheticBean) {
-            return ((SyntheticBean<?>) bean).getPriority() != null || isAlternativeSelectedByClassOrStereotype(bean);
+        if (bean instanceof SyntheticBeanPriority) {
+            return ((SyntheticBeanPriority) bean).getPriority() != null || isAlternativeSelectedByClassOrStereotype(bean);
         }
         if (bean instanceof BeanImpl) {
             return ((BeanImpl<?>) bean).isAlternativeEnabled();
@@ -918,7 +899,7 @@ public class BeanResolver implements DependencyResolver {
             Bean<?> declaringBean = findDeclaringBean(producerBean.getDeclaringClass());
             return declaringBean != null && declaringBean.isAlternative();
         }
-        if (bean instanceof SyntheticProducerBeanImpl) {
+        if (bean instanceof SyntheticProducerBeanMarker) {
             Bean<?> originalBean = findOriginalProducerBean(bean);
             return isEffectivelyAlternative(originalBean);
         }
@@ -926,7 +907,7 @@ public class BeanResolver implements DependencyResolver {
     }
 
     private boolean isAlternativeSelectedByClassOrStereotype(Bean<?> bean) {
-        if (bean instanceof SyntheticProducerBeanImpl) {
+        if (bean instanceof SyntheticProducerBeanMarker) {
             Bean<?> originalBean = findOriginalProducerBean(bean);
             if (originalBean instanceof ProducerBean) {
                 ProducerBean<?> producerBean = (ProducerBean<?>) originalBean;

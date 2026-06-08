@@ -24,7 +24,7 @@ import java.util.Set;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasDecoratorAnnotation;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasDelegateAnnotation;
-import static com.threeamigos.common.util.implementations.injection.types.RawTypeExtractor.extractRawClass;
+import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.extractRawClass;
 
 /**
  * Full {@link DecoratorSupport} implementation, active when syringe-decorators is on the

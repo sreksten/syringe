@@ -1,6 +1,5 @@
 package com.threeamigos.common.util.implementations.injection.annotations.legacy;
 
-import com.threeamigos.common.util.implementations.injection.types.RawTypeExtractor;
 import jakarta.enterprise.inject.spi.DefinitionException;
 
 import java.lang.annotation.Annotation;
@@ -13,6 +12,7 @@ import java.util.List;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasAnyAnnotation;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasNewAnnotation;
+import static com.threeamigos.common.util.implementations.injection.types.TypeHelper.getRawType;
 
 /**
  * Helper utilities for legacy CDI 1.0 {@code @javax.enterprise.inject.New} support.
@@ -52,7 +52,7 @@ public final class LegacyNewQualifierHelper {
                     + String.join(", ", invalidExtraQualifiers));
         }
 
-        Class<?> requiredRawType = RawTypeExtractor.getRawType(requiredType);
+        Class<?> requiredRawType = getRawType(requiredType);
         if (requiredRawType == null) {
             throw new DefinitionException("@New cannot be used with unresolved required type: " + requiredType);
         }
