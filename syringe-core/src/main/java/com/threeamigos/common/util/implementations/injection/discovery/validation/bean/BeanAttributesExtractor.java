@@ -10,7 +10,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
-import static com.threeamigos.common.util.implementations.injection.types.ClassHelper.defaultedBeanName;
+import static com.threeamigos.common.util.implementations.injection.util.ClassHelper.defaultedBeanName;
 
 /**
  * Extracted bean-attributes extraction rules for CDI41BeanValidator.

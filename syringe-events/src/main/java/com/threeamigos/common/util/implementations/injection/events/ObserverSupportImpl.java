@@ -54,7 +54,8 @@ import static com.threeamigos.common.util.implementations.injection.annotations.
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.getPriorityValue;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasSpecializesAnnotation;
 import static com.threeamigos.common.util.implementations.injection.spi.SPIUtils.isContainerLifecycleObservedType;
-import static com.threeamigos.common.util.implementations.injection.types.TypesHelper.extractRawClass;
+import static com.threeamigos.common.util.implementations.injection.util.BeansHelper.isBeanEnabledForObserverLifecycle;
+import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.extractRawClass;
 
 /**
  * Full implementation of {@link ObserverSupport} that handles CDI event/observer processing.
@@ -372,19 +373,6 @@ public class ObserverSupportImpl implements ObserverSupport {
         }
 
         return applyObserverSpecializationFiltering(candidates);
-    }
-
-    private boolean isBeanEnabledForObserverLifecycle(Bean<?> bean) {
-        if (bean == null) {
-            return false;
-        }
-        if (!bean.isAlternative()) {
-            return true;
-        }
-        if (bean instanceof BeanImpl<?>) {
-            return ((BeanImpl<?>) bean).isAlternativeEnabled();
-        }
-        return true;
     }
 
     private Set<Bean<?>> applyObserverSpecializationFiltering(Set<Bean<?>> candidates) {

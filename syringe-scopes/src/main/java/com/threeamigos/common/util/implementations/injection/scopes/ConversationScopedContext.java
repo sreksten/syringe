@@ -26,7 +26,7 @@ import java.util.Set;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
-import static com.threeamigos.common.util.implementations.injection.types.ClassHelper.collectClassHierarchyFromObject;
+import static com.threeamigos.common.util.implementations.injection.util.ClassHelper.collectClassHierarchyFromObject;
 
 /**
  * Implementation of ConversationScoped context.

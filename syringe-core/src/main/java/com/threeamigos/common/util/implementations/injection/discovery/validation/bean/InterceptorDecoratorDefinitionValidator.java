@@ -5,7 +5,7 @@ import com.threeamigos.common.util.implementations.injection.annotations.Annotat
 import com.threeamigos.common.util.implementations.injection.knowledgebase.DecoratorInfo;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.InterceptorInfo;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.KnowledgeBase;
-import com.threeamigos.common.util.implementations.injection.types.TypeClosureHelper;
+import jakarta.enterprise.inject.spi.Decorator;
 import jakarta.enterprise.inject.spi.DefinitionException;
 import jakarta.enterprise.inject.spi.InjectionPoint;
 
@@ -30,7 +30,8 @@ import java.util.Objects;
 import java.util.Set;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasInterceptorBindingAnnotation;
-import static com.threeamigos.common.util.implementations.injection.types.TypesHelper.getRawType;
+import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.extractTypesFromClass;
+import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.safeGetRawType;
 
 /**
  * Extracted interceptor/decorator definition validation and registration rules.
@@ -445,7 +446,7 @@ public class InterceptorDecoratorDefinitionValidator {
 
         Set<String> decoratedMethodSignatures = new HashSet<>();
         for (Type type : decoratedTypes) {
-            Class<?> decoratedClass = rawTypeOf(type);
+            Class<?> decoratedClass = safeGetRawType(type);
             if (decoratedClass == null) {
                 continue;
             }
@@ -476,7 +477,7 @@ public class InterceptorDecoratorDefinitionValidator {
         }
 
         for (Type type : decoratedTypes) {
-            Class<?> decoratedClass = rawTypeOf(type);
+            Class<?> decoratedClass = safeGetRawType(type);
             if (decoratedClass == null) {
                 continue;
             }
@@ -592,20 +593,20 @@ public class InterceptorDecoratorDefinitionValidator {
 
     private Set<Type> extractDecoratedTypes(Class<?> clazz) {
         Set<Type> decoratedTypes = new HashSet<>();
-        Set<Type> typeClosure = TypeClosureHelper.extractTypesFromClass(clazz);
+        Set<Type> typeClosure = extractTypesFromClass(clazz);
         for (Type type : typeClosure) {
-            Class<?> raw = rawTypeOf(type);
+            Class<?> raw = safeGetRawType(type);
             if (raw == null || !raw.isInterface()) {
                 continue;
             }
             if (raw.equals(Object.class)
                     || raw.equals(java.io.Serializable.class)
-                    || raw.equals(jakarta.enterprise.inject.spi.Decorator.class)) {
+                    || raw.equals(Decorator.class)) {
                 continue;
             }
             decoratedTypes.add(type);
         }
-        decoratedTypes.removeIf(t -> java.io.Serializable.class.equals(rawTypeOf(t)));
+        decoratedTypes.removeIf(t -> java.io.Serializable.class.equals(safeGetRawType(t)));
         return decoratedTypes;
     }
 
@@ -629,8 +630,8 @@ public class InterceptorDecoratorDefinitionValidator {
     }
 
     private boolean delegateTypeCoversDecoratedType(Type delegateType, Type decoratedType) {
-        Class<?> delegateRaw = rawTypeOf(delegateType);
-        Class<?> decoratedRaw = rawTypeOf(decoratedType);
+        Class<?> delegateRaw = safeGetRawType(delegateType);
+        Class<?> decoratedRaw = safeGetRawType(decoratedType);
         if (delegateRaw == null || decoratedRaw == null || !decoratedRaw.isAssignableFrom(delegateRaw)) {
             return false;
         }
@@ -652,8 +653,8 @@ public class InterceptorDecoratorDefinitionValidator {
             return false;
         }
 
-        Class<?> beanRaw = rawTypeOf(beanType);
-        Class<?> delegateRaw = rawTypeOf(delegateType);
+        Class<?> beanRaw = safeGetRawType(beanType);
+        Class<?> delegateRaw = safeGetRawType(delegateType);
         if (delegateRaw == null || !delegateRaw.equals(beanRaw)) {
             return false;
         }
@@ -690,8 +691,8 @@ public class InterceptorDecoratorDefinitionValidator {
 
     private boolean matchesDelegateParameter(Type beanParam, Type delegateParam) {
         if (isActualType(beanParam) && isActualType(delegateParam)) {
-            Class<?> beanRaw = rawTypeOf(beanParam);
-            Class<?> delegateRaw = rawTypeOf(delegateParam);
+            Class<?> beanRaw = safeGetRawType(beanParam);
+            Class<?> delegateRaw = safeGetRawType(delegateParam);
             if (beanRaw == null || !beanRaw.equals(delegateRaw)) {
                 return false;
             }
@@ -739,8 +740,8 @@ public class InterceptorDecoratorDefinitionValidator {
     }
 
     private boolean isAssignable(Type from, Type to) {
-        Class<?> fromRaw = rawTypeOf(from);
-        Class<?> toRaw = rawTypeOf(to);
+        Class<?> fromRaw = safeGetRawType(from);
+        Class<?> toRaw = safeGetRawType(to);
         return fromRaw != null && toRaw != null && toRaw.isAssignableFrom(fromRaw);
     }
 
@@ -770,7 +771,7 @@ public class InterceptorDecoratorDefinitionValidator {
             return null;
         }
 
-        Class<?> raw = rawTypeOf(source);
+        Class<?> raw = safeGetRawType(source);
         if (raw == null) {
             return null;
         }
@@ -792,11 +793,4 @@ public class InterceptorDecoratorDefinitionValidator {
         return method.getName() + Arrays.toString(method.getParameterTypes());
     }
 
-    private Class<?> rawTypeOf(Type type) {
-        try {
-            return getRawType(type);
-        } catch (IllegalArgumentException e) {
-            return null;
-        }
-    }
 }

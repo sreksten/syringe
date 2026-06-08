@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasNamedAnnotation;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.DECORATED;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.INTERCEPTED;
+import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.extractRawClass;
 
 /**
  * Extracted constructor/injection metadata validation rules.
@@ -378,14 +379,7 @@ public class InjectionMetadataValidator {
     }
 
     private boolean isInterceptionFactoryType(Type type) {
-        if (type instanceof Class) {
-            return InterceptionFactory.class.equals(type);
-        }
-        if (type instanceof ParameterizedType) {
-            Type raw = ((ParameterizedType) type).getRawType();
-            return raw instanceof Class && InterceptionFactory.class.equals(raw);
-        }
-        return false;
+        return InterceptionFactory.class.equals(extractRawClass(type));
     }
 
     @Nonnull

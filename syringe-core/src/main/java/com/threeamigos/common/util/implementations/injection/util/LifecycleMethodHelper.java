@@ -7,7 +7,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
 
-import static com.threeamigos.common.util.implementations.injection.types.ClassHelper.collectClassHierarchyFromObject;
+import static com.threeamigos.common.util.implementations.injection.util.ClassHelper.collectClassHierarchyFromObject;
 
 public class LifecycleMethodHelper {
 

@@ -1,7 +1,6 @@
 package com.threeamigos.common.util.implementations.injection.annotations;
 
 import com.threeamigos.common.util.implementations.injection.beansxml.BeansXml;
-import com.threeamigos.common.util.implementations.injection.types.TypeClosureHelper;
 import jakarta.annotation.Nonnull;
 import jakarta.enterprise.event.Observes;
 import jakarta.enterprise.event.ObservesAsync;
@@ -20,6 +19,7 @@ import java.util.stream.Stream;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.PRIORITY;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.WITH_ANNOTATIONS;
+import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.extractTypesFromType;
 
 public class AnnotationsHelper {
 
@@ -460,7 +460,7 @@ public class AnnotationsHelper {
         if (annotatedField != null && annotatedField.getTypeClosure() != null && !annotatedField.getTypeClosure().isEmpty()) {
             return new LinkedHashSet<>(annotatedField.getTypeClosure());
         }
-        return TypeClosureHelper.extractTypesFromType(field.getGenericType());
+        return extractTypesFromType(field.getGenericType());
     }
 
     public static Set<Type> typeClosureOf(AnnotatedType<?> annotatedType, Method method) {
@@ -468,7 +468,7 @@ public class AnnotationsHelper {
         if (annotatedMethod != null && annotatedMethod.getTypeClosure() != null && !annotatedMethod.getTypeClosure().isEmpty()) {
             return new LinkedHashSet<>(annotatedMethod.getTypeClosure());
         }
-        return TypeClosureHelper.extractTypesFromType(method.getGenericReturnType());
+        return extractTypesFromType(method.getGenericReturnType());
     }
 
     public static AnnotatedField<?> findAnnotatedField(AnnotatedType<?> annotatedType, Field field) {
@@ -1243,4 +1243,6 @@ public class AnnotationsHelper {
 
         return false;
     }
+
+
 }

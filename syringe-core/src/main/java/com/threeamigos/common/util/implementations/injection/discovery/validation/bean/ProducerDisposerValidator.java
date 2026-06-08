@@ -2,7 +2,7 @@ package com.threeamigos.common.util.implementations.injection.discovery.validati
 
 import com.threeamigos.common.util.implementations.injection.discovery.validation.CDI41BeanValidator;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.KnowledgeBase;
-import com.threeamigos.common.util.implementations.injection.types.TypesHelper;
+import com.threeamigos.common.util.implementations.injection.util.TypesHelper;
 import jakarta.enterprise.inject.spi.DefinitionException;
 
 import java.lang.annotation.Annotation;

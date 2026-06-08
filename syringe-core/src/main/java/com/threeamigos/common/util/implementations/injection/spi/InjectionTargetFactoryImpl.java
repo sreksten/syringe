@@ -28,7 +28,7 @@ import java.util.Set;
 import java.util.WeakHashMap;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
-import static com.threeamigos.common.util.implementations.injection.types.ClassHelper.collectClassHierarchy;
+import static com.threeamigos.common.util.implementations.injection.util.ClassHelper.collectClassHierarchy;
 
 /**
  * Factory for creating InjectionTarget instances.

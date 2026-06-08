@@ -48,7 +48,6 @@ import com.threeamigos.common.util.implementations.injection.spi.support.NoOpSpi
 import com.threeamigos.common.util.implementations.injection.spi.support.SpiSupport;
 import com.threeamigos.common.util.implementations.injection.spi.support.SyntheticBeanMarker;
 import com.threeamigos.common.util.implementations.injection.spi.spievents.SimpleAnnotatedType;
-import com.threeamigos.common.util.implementations.injection.types.TypeClosureHelper;
 import com.threeamigos.common.util.implementations.messagehandler.ConsoleMessageHandler;
 import com.threeamigos.common.util.interfaces.messagehandler.MessageHandler;
 import jakarta.enterprise.context.spi.Context;
@@ -66,15 +65,15 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.lang.reflect.TypeVariable;
-import java.lang.reflect.WildcardType;
 import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasObservesAnnotation;
 import static com.threeamigos.common.util.implementations.injection.spi.SPIUtils.extractPrioritizedInterfacePriority;
-import static com.threeamigos.common.util.implementations.injection.types.TypesHelper.extractRawClass;
+import static com.threeamigos.common.util.implementations.injection.util.BeansHelper.*;
+import static com.threeamigos.common.util.implementations.injection.util.ClassHelper.getClassDepth;
+import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.*;
 
 /**
  * Syringe - CDI 4.1 compliant container implementation.
@@ -1384,7 +1383,7 @@ public class Syringe {
             }
         }
         BeanImpl syntheticBean = new BeanImpl(lifecycleType, false);
-        syntheticBean.setTypes(TypeClosureHelper.extractTypesFromClass(lifecycleType));
+        syntheticBean.setTypes(extractTypesFromClass(lifecycleType));
         return syntheticBean;
     }
 
@@ -1480,174 +1479,6 @@ public class Syringe {
                         " with matching type parameters");
             }
         }
-    }
-
-    private boolean decoratorDelegateTypeCoversDecoratedType(Type delegateType, Type decoratedType) {
-        Class<?> delegateRaw = extractRawClass(delegateType);
-        Class<?> decoratedRaw = extractRawClass(decoratedType);
-        if (delegateRaw == null || decoratedRaw == null || !decoratedRaw.isAssignableFrom(delegateRaw)) {
-            return false;
-        }
-
-        if (!(decoratedType instanceof ParameterizedType)) {
-            return true;
-        }
-
-        Type viewOnDecoratedRaw = findDecoratorTypeInHierarchy(delegateType, decoratedRaw, new HashSet<>());
-        if (viewOnDecoratedRaw == null) {
-            return false;
-        }
-
-        return decoratorBeanTypeAssignableToDelegateType(decoratedType, viewOnDecoratedRaw);
-    }
-
-    private boolean decoratorBeanTypeAssignableToDelegateType(Type beanType, Type delegateType) {
-        if (beanType == null || delegateType == null) {
-            return false;
-        }
-
-        Class<?> beanRaw = extractRawClass(beanType);
-        Class<?> delegateRaw = extractRawClass(delegateType);
-        if (delegateRaw == null || !delegateRaw.equals(beanRaw)) {
-            return false;
-        }
-
-        if (beanType instanceof Class && delegateType instanceof ParameterizedType) {
-            for (Type delegateArg : ((ParameterizedType) delegateType).getActualTypeArguments()) {
-                if (!Object.class.equals(delegateArg)) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        if (beanType instanceof ParameterizedType && delegateType instanceof ParameterizedType) {
-            Type[] beanArgs = ((ParameterizedType) beanType).getActualTypeArguments();
-            Type[] delegateArgs = ((ParameterizedType) delegateType).getActualTypeArguments();
-            if (beanArgs.length != delegateArgs.length) {
-                return false;
-            }
-            for (int i = 0; i < beanArgs.length; i++) {
-                if (!decoratorMatchesDelegateParameter(beanArgs[i], delegateArgs[i])) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        if (beanType instanceof Class && delegateType instanceof Class) {
-            return true;
-        }
-
-        return beanType.equals(delegateType);
-    }
-
-    private boolean decoratorMatchesDelegateParameter(Type beanParam, Type delegateParam) {
-        if (decoratorIsActualType(beanParam) && decoratorIsActualType(delegateParam)) {
-            Class<?> beanRaw = extractRawClass(beanParam);
-            Class<?> delegateRaw = extractRawClass(delegateParam);
-            if (beanRaw == null || !beanRaw.equals(delegateRaw)) {
-                return false;
-            }
-            if (beanParam instanceof ParameterizedType && delegateParam instanceof ParameterizedType) {
-                return decoratorBeanTypeAssignableToDelegateType(beanParam, delegateParam);
-            }
-            return true;
-        }
-
-        if (delegateParam instanceof WildcardType && decoratorIsActualType(beanParam)) {
-            return decoratorWildcardMatches((WildcardType) delegateParam, beanParam);
-        }
-
-        if (delegateParam instanceof WildcardType && beanParam instanceof TypeVariable<?>) {
-            Type beanUpperBound = decoratorFirstUpperBound((TypeVariable<?>) beanParam);
-            return decoratorWildcardMatches((WildcardType) delegateParam, beanUpperBound);
-        }
-
-        if (delegateParam instanceof TypeVariable<?> && beanParam instanceof TypeVariable<?>) {
-            Type delegateUpper = decoratorFirstUpperBound((TypeVariable<?>) delegateParam);
-            Type beanUpper = decoratorFirstUpperBound((TypeVariable<?>) beanParam);
-            return decoratorIsAssignable(beanUpper, delegateUpper);
-        }
-
-        if (delegateParam instanceof TypeVariable<?> && decoratorIsActualType(beanParam)) {
-            Type delegateUpper = decoratorFirstUpperBound((TypeVariable<?>) delegateParam);
-            return decoratorIsAssignable(beanParam, delegateUpper);
-        }
-
-        return false;
-    }
-
-    private boolean decoratorWildcardMatches(WildcardType wildcard, Type candidate) {
-        for (Type upper : wildcard.getUpperBounds()) {
-            if (!Object.class.equals(upper) && !decoratorIsAssignable(candidate, upper)) {
-                return false;
-            }
-        }
-        for (Type lower : wildcard.getLowerBounds()) {
-            if (!decoratorIsAssignable(lower, candidate)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private boolean decoratorIsAssignable(Type from, Type to) {
-        Class<?> fromRaw = extractRawClass(from);
-        Class<?> toRaw = extractRawClass(to);
-        return fromRaw != null && toRaw != null && toRaw.isAssignableFrom(fromRaw);
-    }
-
-    private Type decoratorFirstUpperBound(TypeVariable<?> variable) {
-        Type[] bounds = variable.getBounds();
-        return bounds.length == 0 ? Object.class : bounds[0];
-    }
-
-    private boolean decoratorIsActualType(Type type) {
-        return type instanceof Class<?> || type instanceof ParameterizedType;
-    }
-
-    private Type findDecoratorTypeInHierarchy(Type source, Class<?> targetRaw, Set<Type> visited) {
-        if (source == null || !visited.add(source)) {
-            return null;
-        }
-
-        Class<?> raw = extractRawClass(source);
-        if (raw == null) {
-            return null;
-        }
-        if (raw.equals(targetRaw)) {
-            return source;
-        }
-
-        for (Type type : raw.getGenericInterfaces()) {
-            Type found = findDecoratorTypeInHierarchy(type, targetRaw, visited);
-            if (found != null) {
-                return found;
-            }
-        }
-
-        return findDecoratorTypeInHierarchy(raw.getGenericSuperclass(), targetRaw, visited);
-    }
-
-    private Set<Type> extractDecoratorDecoratedTypes(Class<?> decoratorClass) {
-        if (decoratorClass == null) {
-            return Collections.emptySet();
-        }
-        Set<Type> decoratedTypes = new LinkedHashSet<>();
-        for (Type type : TypeClosureHelper.extractTypesFromClass(decoratorClass)) {
-            Class<?> raw = extractRawClass(type);
-            if (raw == null || !raw.isInterface()) {
-                continue;
-            }
-            if (Object.class.equals(raw)
-                    || java.io.Serializable.class.equals(raw)
-                    || Decorator.class.equals(raw)) {
-                continue;
-            }
-            decoratedTypes.add(type);
-        }
-        return decoratedTypes;
     }
 
     /**
@@ -1828,74 +1659,6 @@ public class Syringe {
         }
     }
 
-    private List<Bean<?>> orderBeansForProcessBeanAttributes(Collection<Bean<?>> beans) {
-        List<Bean<?>> ordered = new ArrayList<>();
-        if (beans != null) {
-            ordered.addAll(beans);
-        }
-        ordered.sort((left, right) -> {
-            int leftDepth = processBeanAttributesClassDepth(left);
-            int rightDepth = processBeanAttributesClassDepth(right);
-            int depthCompare = Integer.compare(rightDepth, leftDepth);
-            if (depthCompare != 0) {
-                return depthCompare;
-            }
-
-            String leftClassName = processBeanAttributesClassName(left);
-            String rightClassName = processBeanAttributesClassName(right);
-            int classCompare = leftClassName.compareTo(rightClassName);
-            if (classCompare != 0) {
-                return classCompare;
-            }
-
-            int kindCompare = Integer.compare(processBeanAttributesBeanKindOrder(left),
-                    processBeanAttributesBeanKindOrder(right));
-            if (kindCompare != 0) {
-                return kindCompare;
-            }
-
-            return Integer.compare(System.identityHashCode(left), System.identityHashCode(right));
-        });
-        return ordered;
-    }
-
-    private int processBeanAttributesClassDepth(Bean<?> bean) {
-        Class<?> clazz = resolveProcessBeanAttributesDeclaringClass(bean);
-        return processBeanAttributesClassDepth(clazz);
-    }
-
-    private int processBeanAttributesClassDepth(Class<?> clazz) {
-        int depth = 0;
-        Class<?> current = clazz;
-        while (current != null && current != Object.class) {
-            depth++;
-            current = current.getSuperclass();
-        }
-        return depth;
-    }
-
-    private String processBeanAttributesClassName(Bean<?> bean) {
-        Class<?> clazz = resolveProcessBeanAttributesDeclaringClass(bean);
-        return clazz != null ? clazz.getName() : "";
-    }
-
-    private int processBeanAttributesBeanKindOrder(Bean<?> bean) {
-        if (bean instanceof BeanImpl<?>) {
-            return 0;
-        }
-        if (bean instanceof ProducerBean<?>) {
-            return 1;
-        }
-        return 2;
-    }
-
-    private Class<?> resolveProcessBeanAttributesDeclaringClass(Bean<?> bean) {
-        if (bean instanceof ProducerBean<?>) {
-            return ((ProducerBean<?>) bean).getDeclaringClass();
-        }
-        return bean != null ? bean.getBeanClass() : null;
-    }
-
     private void processInterceptorAndDecoratorBeanAttributes(Set<Class<?>> processedBeanClasses) {
         Set<Class<?>> lifecycleTypes = new LinkedHashSet<>();
         for (InterceptorInfo interceptorInfo : knowledgeBase.getInterceptorInfos()) {
@@ -1924,10 +1687,6 @@ public class Syringe {
                         lifecycleType.getName(), e);
             }
         }
-    }
-
-    private boolean isProcessBeanAttributesCandidate(Bean<?> bean) {
-        return bean instanceof BeanImpl<?> || bean instanceof ProducerBean<?>;
     }
 
     private Annotated resolveProcessBeanAttributesAnnotated(Bean<?> bean) {
@@ -1967,7 +1726,6 @@ public class Syringe {
      *
      * <p>Extensions can inspect final Bean<?> objects before deployment validation.
      */
-    @SuppressWarnings({"unchecked", "rawtypes"})
     private void processBean() {
         info("Processing beans");
 
@@ -2144,7 +1902,7 @@ public class Syringe {
      *
      * <p>Extensions can inspect producer-bean metadata after ProcessBeanAttributes.
      */
-    @SuppressWarnings({"unchecked", "rawtypes"})
+    @SuppressWarnings({"rawtypes"})
     private void processProducers() {
         info("Processing producer method/field events");
 
@@ -2264,28 +2022,6 @@ public class Syringe {
         return null;
     }
 
-    private boolean isSameRawType(Type left, Type right) {
-        Class<?> leftRawType = extractRawType(left);
-        Class<?> rightRawType = extractRawType(right);
-        if (leftRawType != null && rightRawType != null) {
-            return leftRawType.equals(rightRawType);
-        }
-        return Objects.equals(left, right);
-    }
-
-    private Class<?> extractRawType(Type type) {
-        if (type instanceof Class<?>) {
-            return (Class<?>) type;
-        }
-        if (type instanceof ParameterizedType) {
-            Type rawType = ((ParameterizedType) type).getRawType();
-            if (rawType instanceof Class<?>) {
-                return (Class<?>) rawType;
-            }
-        }
-        return null;
-    }
-
     @SuppressWarnings({"rawtypes", "unchecked"})
     private Producer resolveEffectiveProducerForLifecycleEvent(ProducerBean<?> producerBean) {
         Producer<?> producer = deferredProducerReplacements.get(producerBean);
@@ -2360,19 +2096,6 @@ public class Syringe {
         public Set<InjectionPoint> getInjectionPoints() {
             return producerBean.getInjectionPoints();
         }
-    }
-
-    private boolean isBeanEnabledForObserverLifecycle(Bean<?> bean) {
-        if (bean == null) {
-            return false;
-        }
-        if (!bean.isAlternative()) {
-            return true;
-        }
-        if (bean instanceof BeanImpl<?>) {
-            return ((BeanImpl<?>) bean).isAlternativeEnabled();
-        }
-        return true;
     }
 
     private Set<Class<?>> collectSpecializedSuperclasses(Class<?> beanClass) {

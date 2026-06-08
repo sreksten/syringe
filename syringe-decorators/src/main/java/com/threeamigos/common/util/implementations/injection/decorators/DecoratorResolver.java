@@ -19,7 +19,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
-import static com.threeamigos.common.util.implementations.injection.types.TypesHelper.getRawType;
+import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.safeGetRawType;
 
 /**
  * Resolves decorators for target beans based on type matching.
@@ -367,8 +367,8 @@ public class DecoratorResolver {
             return false;
         }
 
-        Class<?> beanRaw = safeRawType(beanType);
-        Class<?> delegateRaw = safeRawType(delegateType);
+        Class<?> beanRaw = safeGetRawType(beanType);
+        Class<?> delegateRaw = safeGetRawType(delegateType);
         if (delegateRaw == null || !delegateRaw.equals(beanRaw)) {
             return false;
         }
@@ -408,8 +408,8 @@ public class DecoratorResolver {
     private boolean matchesDelegateParameter(Type beanParam, Type delegateParam) {
         // both actual types
         if (isActualType(beanParam) && isActualType(delegateParam)) {
-            Class<?> beanRaw = safeRawType(beanParam);
-            Class<?> delegateRaw = safeRawType(delegateParam);
+            Class<?> beanRaw = safeGetRawType(beanParam);
+            Class<?> delegateRaw = safeGetRawType(delegateParam);
             if (beanRaw == null || !beanRaw.equals(delegateRaw)) {
                 return false;
             }
@@ -461,8 +461,8 @@ public class DecoratorResolver {
     }
 
     private boolean isAssignable(Type from, Type to) {
-        Class<?> fromRaw = safeRawType(from);
-        Class<?> toRaw = safeRawType(to);
+        Class<?> fromRaw = safeGetRawType(from);
+        Class<?> toRaw = safeGetRawType(to);
         return fromRaw != null && toRaw != null && toRaw.isAssignableFrom(fromRaw);
     }
 
@@ -485,14 +485,6 @@ public class DecoratorResolver {
             return bounds.length == 0 || (bounds.length == 1 && Object.class.equals(bounds[0]));
         }
         return false;
-    }
-
-    private Class<?> safeRawType(Type type) {
-        try {
-            return getRawType(type);
-        } catch (RuntimeException e) {
-            return null;
-        }
     }
 
     /**

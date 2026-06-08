@@ -14,7 +14,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-import static com.threeamigos.common.util.implementations.injection.types.ClassHelper.packageName;
+import static com.threeamigos.common.util.implementations.injection.util.ClassHelper.packageName;
 
 /**
  * Registration-phase view over container-discovered bean and method metadata.

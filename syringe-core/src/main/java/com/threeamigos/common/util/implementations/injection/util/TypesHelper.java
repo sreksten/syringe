@@ -1,11 +1,12 @@
-package com.threeamigos.common.util.implementations.injection.types;
+package com.threeamigos.common.util.implementations.injection.util;
 
 import com.threeamigos.common.util.implementations.collections.Cache;
 
 import jakarta.annotation.Nonnull;
+import jakarta.enterprise.inject.spi.Decorator;
 import jakarta.enterprise.inject.spi.DefinitionException;
 import java.lang.reflect.*;
-import java.util.Objects;
+import java.util.*;
 
 /**
  * Type checker for dependency injection that validates type assignability following Java's type system
@@ -80,45 +81,6 @@ public class TypesHelper {
     private final Cache<TypePair, Boolean> assignabilityCache = new Cache<>();
 
     /**
-     * Validates that a type is a legal bean type for an injection point.
-     * CDI 4.1 allows wildcard type parameters in injection point types, but not type variables.
-     *
-     * <p>Note: Intersection types (e.g., T extends Serializable & Comparable&lt;T&gt;) are
-     * represented via TypeVariable bounds in Java's reflection API. These are allowed in
-     * injection points when fully resolved (i.e., when the actual type is known).
-     *
-     * @param type the type to validate
-     * @throws DefinitionException if the type contains type variables
-     */
-    public void validateInjectionPoint(Type type) {
-        if (type instanceof TypeVariable) {
-            throw new DefinitionException("Injection point cannot be a type variable: " + type.getTypeName());
-        }
-
-        if (type instanceof WildcardType) {
-            WildcardType wildcardType = (WildcardType) type;
-            for (Type upperBound : wildcardType.getUpperBounds()) {
-                validateInjectionPoint(upperBound);
-            }
-            for (Type lowerBound : wildcardType.getLowerBounds()) {
-                validateInjectionPoint(lowerBound);
-            }
-            return;
-        }
-
-        if (type instanceof ParameterizedType) {
-            ParameterizedType pt = (ParameterizedType) type;
-            for (Type arg : pt.getActualTypeArguments()) {
-                validateInjectionPoint(arg); // Recursive check
-            }
-        }
-
-        if (type instanceof GenericArrayType) {
-            validateInjectionPoint(((GenericArrayType) type).getGenericComponentType());
-        }
-    }
-
-    /**
      * Checks if an implementation type can be assigned to a target type, following
      * Java's type system rules including generic type invariance.
      *
@@ -156,42 +118,14 @@ public class TypesHelper {
      */
     public boolean isAssignable(Type targetType, Type implementationType) {
         if (targetType instanceof TypeVariable || implementationType instanceof TypeVariable ||
-            targetType instanceof WildcardType || implementationType instanceof WildcardType) {
+                targetType instanceof WildcardType || implementationType instanceof WildcardType) {
             return isAssignableInternal(targetType, implementationType, true);
         }
         TypePair pair = new TypePair(targetType, implementationType);
         return assignabilityCache.computeIfAbsent(pair, () -> isAssignableInternal(targetType, implementationType, true));
     }
 
-    /**
-     * Checks observer/event assignability without applying injection-point legality validation.
-     * CDI observer event types may include type variables and wildcards.
-     */
-    public boolean isEventTypeAssignable(Type observedEventType, Type eventType) {
-        // CDI observer resolution allows a parameterized event type to match a raw observed type
-        // when raw types are assignable (e.g., observe Box, fire Box<Integer, String, Random>).
-        if (observedEventType instanceof Class<?> && eventType instanceof ParameterizedType) {
-            Class<?> observedRaw = normalizePrimitiveType((Class<?>) observedEventType);
-            Class<?> eventRaw = normalizePrimitiveType(getRawType(eventType));
-            if (observedRaw.isAssignableFrom(eventRaw)) {
-                return true;
-            }
-        }
-        return isAssignableInternal(observedEventType, eventType, false);
-    }
-
-    /**
-     * Checks assignability for programmatic type lookup (for example {@code BeanManager#getBeans(Type)}),
-     * where required types may legally contain type variables.
-     */
-    public boolean isLookupTypeAssignable(Type requiredType, Type beanType) {
-        if (!isAssignableInternal(requiredType, beanType, false)) {
-            return false;
-        }
-        return isLookupTypeVariableCompatible(requiredType, beanType);
-    }
-
-    boolean isAssignableInternal(Type targetType, Type implementationType, boolean validateTarget) {
+    static boolean isAssignableInternal(Type targetType, Type implementationType, boolean validateTarget) {
         if (validateTarget) {
             validateInjectionPoint(targetType);
         }
@@ -259,8 +193,8 @@ public class TypesHelper {
             Type exactSuperType = getExactSuperType(implementationType, targetRaw);
             if (exactSuperType == null) {
                 throw new IllegalStateException(
-                    "getExactSuperType returned null despite isAssignableFrom being true. " +
-                    "Target: " + targetType + ", Implementation: " + implementationType);
+                        "getExactSuperType returned null despite isAssignableFrom being true. " +
+                                "Target: " + targetType + ", Implementation: " + implementationType);
             }
             return typesMatch(targetType, exactSuperType);
         }
@@ -274,9 +208,9 @@ public class TypesHelper {
             } else {
                 if (!implementationRaw.isArray()) {
                     throw new IllegalStateException(
-                        "Implementation type is not an array despite passing isAssignableFrom check. " +
-                        "Target: " + targetType + " (raw: " + targetRaw + "), " +
-                        "Implementation: " + implementationType + " (raw: " + implementationRaw + ")");
+                            "Implementation type is not an array despite passing isAssignableFrom check. " +
+                                    "Target: " + targetType + " (raw: " + targetRaw + "), " +
+                                    "Implementation: " + implementationType + " (raw: " + implementationRaw + ")");
                 }
                 implComponentType = implementationRaw.getComponentType();
             }
@@ -284,15 +218,82 @@ public class TypesHelper {
         }
 
         throw new IllegalStateException(
-            "Unexpected target type: " + targetType.getClass().getName() +
-            " - " + targetType + ". Expected Class, ParameterizedType, or GenericArrayType.");
+                "Unexpected target type: " + targetType.getClass().getName() +
+                        " - " + targetType + ". Expected Class, ParameterizedType, or GenericArrayType.");
     }
 
-    private boolean isOnlyObjectBound(Type[] bounds) {
+    private static boolean isOnlyObjectBound(Type[] bounds) {
         return bounds.length == 1 && Object.class.equals(bounds[0]);
     }
 
-    private boolean isLookupTypeVariableCompatible(Type requiredType, Type beanType) {
+    /**
+     * Validates that a type is a legal bean type for an injection point.
+     * CDI 4.1 allows wildcard type parameters in injection point types, but not type variables.
+     *
+     * <p>Note: Intersection types (e.g., T extends Serializable & Comparable&lt;T&gt;) are
+     * represented via TypeVariable bounds in Java's reflection API. These are allowed in
+     * injection points when fully resolved (i.e., when the actual type is known).
+     *
+     * @param type the type to validate
+     * @throws DefinitionException if the type contains type variables
+     */
+    public static void validateInjectionPoint(Type type) {
+        if (type instanceof TypeVariable) {
+            throw new DefinitionException("Injection point cannot be a type variable: " + type.getTypeName());
+        }
+
+        if (type instanceof WildcardType) {
+            WildcardType wildcardType = (WildcardType) type;
+            for (Type upperBound : wildcardType.getUpperBounds()) {
+                validateInjectionPoint(upperBound);
+            }
+            for (Type lowerBound : wildcardType.getLowerBounds()) {
+                validateInjectionPoint(lowerBound);
+            }
+            return;
+        }
+
+        if (type instanceof ParameterizedType) {
+            ParameterizedType pt = (ParameterizedType) type;
+            for (Type arg : pt.getActualTypeArguments()) {
+                validateInjectionPoint(arg); // Recursive check
+            }
+        }
+
+        if (type instanceof GenericArrayType) {
+            validateInjectionPoint(((GenericArrayType) type).getGenericComponentType());
+        }
+    }
+
+    /**
+     * Checks observer/event assignability without applying injection-point legality validation.
+     * CDI observer event types may include type variables and wildcards.
+     */
+    public static boolean isEventTypeAssignable(Type observedEventType, Type eventType) {
+        // CDI observer resolution allows a parameterized event type to match a raw observed type
+        // when raw types are assignable (e.g., observe Box, fire Box<Integer, String, Random>).
+        if (observedEventType instanceof Class<?> && eventType instanceof ParameterizedType) {
+            Class<?> observedRaw = normalizePrimitiveType((Class<?>) observedEventType);
+            Class<?> eventRaw = normalizePrimitiveType(getRawType(eventType));
+            if (observedRaw.isAssignableFrom(eventRaw)) {
+                return true;
+            }
+        }
+        return isAssignableInternal(observedEventType, eventType, false);
+    }
+
+    /**
+     * Checks assignability for programmatic type lookup (for example {@code BeanManager#getBeans(Type)}),
+     * where required types may legally contain type variables.
+     */
+    public static boolean isLookupTypeAssignable(Type requiredType, Type beanType) {
+        if (!isAssignableInternal(requiredType, beanType, false)) {
+            return false;
+        }
+        return isLookupTypeVariableCompatible(requiredType, beanType);
+    }
+
+    private static boolean isLookupTypeVariableCompatible(Type requiredType, Type beanType) {
         if (!(requiredType instanceof ParameterizedType)) {
             return true;
         }
@@ -325,7 +326,7 @@ public class TypesHelper {
         return true;
     }
 
-    private boolean containsRequiredTypeVariable(Type[] arguments) {
+    private static boolean containsRequiredTypeVariable(Type[] arguments) {
         for (Type argument : arguments) {
             if (argument instanceof TypeVariable<?>) {
                 return true;
@@ -338,7 +339,7 @@ public class TypesHelper {
         return false;
     }
 
-    private boolean isNotLookupTypeArgumentCompatible(Type requiredArgument, Type beanArgument) {
+    private static boolean isNotLookupTypeArgumentCompatible(Type requiredArgument, Type beanArgument) {
         if (requiredArgument instanceof TypeVariable<?>) {
             if (beanArgument instanceof TypeVariable<?>) {
                 return !isRequiredTypeVariableAssignableToBeanTypeVariable(
@@ -397,7 +398,7 @@ public class TypesHelper {
      * @param targetRaw the target raw class to find (e.g., {@code List.class})
      * @return the parameterized supertype matching targetRaw, or null if not found
      */
-    public Type getExactSuperType(Type type, Class<?> targetRaw) {
+    public static Type getExactSuperType(Type type, Class<?> targetRaw) {
         Class<?> raw = getRawType(type);
         if (raw == targetRaw) return type;
 
@@ -438,7 +439,7 @@ public class TypesHelper {
      * @return the type with variables resolved, or original if no resolution needed
      * @throws IllegalStateException if a type variable cannot be resolved
      */
-    public Type resolveTypeVariables(Type toResolve, Type context) {
+    public static Type resolveTypeVariables(Type toResolve, Type context) {
         if (!(toResolve instanceof ParameterizedType) || !(context instanceof ParameterizedType)) {
             return toResolve;
         }
@@ -491,7 +492,7 @@ public class TypesHelper {
      * @param candidate the candidate type to match against target
      * @return true if types match exactly
      */
-    public boolean typesMatch(Type target, Type candidate) {
+    public static boolean typesMatch(Type target, Type candidate) {
         if (target.equals(candidate)) {
             return true;
         }
@@ -561,7 +562,7 @@ public class TypesHelper {
      * @param t2 the candidate type argument (from implementation or producer)
      * @return true if t2 is compatible with t1
      */
-    public boolean typeArgsMatch(Type t1, Type t2) {
+    public static boolean typeArgsMatch(Type t1, Type t2) {
         if (t1.equals(t2)) {
             return true;
         }
@@ -641,7 +642,7 @@ public class TypesHelper {
         return t1.equals(t2);
     }
 
-    private boolean isRequiredTypeVariableAssignableToBeanTypeVariable(TypeVariable<?> requiredTypeVariable,
+    private static boolean isRequiredTypeVariableAssignableToBeanTypeVariable(TypeVariable<?> requiredTypeVariable,
                                                                        TypeVariable<?> beanTypeVariable) {
         Type[] requiredBounds = effectiveBounds(requiredTypeVariable.getBounds());
         Type[] beanBounds = effectiveBounds(beanTypeVariable.getBounds());
@@ -661,7 +662,7 @@ public class TypesHelper {
         return true;
     }
 
-    private boolean isRequiredTypeArgumentAssignableToBeanTypeVariable(Type requiredTypeArgument,
+    private static boolean isRequiredTypeArgumentAssignableToBeanTypeVariable(Type requiredTypeArgument,
                                                                        TypeVariable<?> beanTypeVariable) {
         Type[] beanBounds = effectiveBounds(beanTypeVariable.getBounds());
         if (isOnlyObjectBound(beanBounds)) {
@@ -703,7 +704,7 @@ public class TypesHelper {
         return satisfiesAllBeanBounds(requiredTypeArgument, beanBounds);
     }
 
-    private boolean satisfiesAllBeanBounds(Type requiredTypeArgument, Type[] beanBounds) {
+    private static boolean satisfiesAllBeanBounds(Type requiredTypeArgument, Type[] beanBounds) {
         for (Type beanBound : beanBounds) {
             if (!isSubtypeOf(requiredTypeArgument, beanBound)) {
                 return false;
@@ -712,7 +713,7 @@ public class TypesHelper {
         return true;
     }
 
-    private boolean hasPotentialOverlap(Type left, Type right) {
+    private static boolean hasPotentialOverlap(Type left, Type right) {
         if (left instanceof TypeVariable<?>) {
             for (Type bound : effectiveBounds(((TypeVariable<?>) left).getBounds())) {
                 if (hasPotentialOverlap(bound, right)) {
@@ -740,7 +741,7 @@ public class TypesHelper {
         return leftRaw.isInterface() && rightRaw.isInterface();
     }
 
-    private boolean isSubtypeOf(Type candidate, Type superType) {
+    private static boolean isSubtypeOf(Type candidate, Type superType) {
         if (superType instanceof TypeVariable<?>) {
             for (Type bound : effectiveBounds(((TypeVariable<?>) superType).getBounds())) {
                 if (!isSubtypeOf(candidate, bound)) {
@@ -790,7 +791,7 @@ public class TypesHelper {
      * @param producerWildcard the wildcard from producer bean (e.g., extends Number)
      * @return true if the producer wildcard can satisfy the injection point type
      */
-    private boolean isWildcardCompatible(Type injectionPointType, WildcardType producerWildcard) {
+    private static boolean isWildcardCompatible(Type injectionPointType, WildcardType producerWildcard) {
         Type[] upperBounds = producerWildcard.getUpperBounds();
         Type[] lowerBounds = producerWildcard.getLowerBounds();
 
@@ -837,7 +838,7 @@ public class TypesHelper {
      * Checks if a concrete candidate type argument can satisfy a wildcard type argument
      * declared at an injection point.
      */
-    private boolean isInjectionWildcardCompatible(WildcardType injectionWildcard, Type candidateType) {
+    private static boolean isInjectionWildcardCompatible(WildcardType injectionWildcard, Type candidateType) {
         Type[] upperBounds = injectionWildcard.getUpperBounds();
         Type[] lowerBounds = injectionWildcard.getLowerBounds();
 
@@ -905,7 +906,7 @@ public class TypesHelper {
      * @return true if t2 matches t1 after hierarchy resolution
      * @throws IllegalStateException if type resolution fails unexpectedly
      */
-    private boolean matchParameterizedTypes(Type t1, Type t2) {
+    private static boolean matchParameterizedTypes(Type t1, Type t2) {
         ParameterizedType pt1 = (ParameterizedType) t1;
         ParameterizedType pt2 = (ParameterizedType) t2;
 
@@ -945,7 +946,7 @@ public class TypesHelper {
      * @param pt2 the candidate parameterized type
      * @return true if all type arguments match
      */
-    public boolean actualTypeArgumentsMatch(ParameterizedType pt1, ParameterizedType pt2) {
+    public static boolean actualTypeArgumentsMatch(ParameterizedType pt1, ParameterizedType pt2) {
         Type[] args1 = pt1.getActualTypeArguments();
         Type[] args2 = pt2.getActualTypeArguments();
 
@@ -961,7 +962,7 @@ public class TypesHelper {
         return true;
     }
 
-    private boolean isRawBeanTypeAssignableToParameterizedRequiredType(ParameterizedType requiredType) {
+    private static boolean isRawBeanTypeAssignableToParameterizedRequiredType(ParameterizedType requiredType) {
         for (Type typeArgument : requiredType.getActualTypeArguments()) {
             if (typeArgument instanceof Class<?>) {
                 if (!Object.class.equals(typeArgument)) {
@@ -980,7 +981,7 @@ public class TypesHelper {
         return true;
     }
 
-    private boolean isParameterizedBeanTypeAssignableToRawRequiredType(ParameterizedType beanType) {
+    private static boolean isParameterizedBeanTypeAssignableToRawRequiredType(ParameterizedType beanType) {
         for (Type typeArgument : beanType.getActualTypeArguments()) {
             if (typeArgument instanceof Class<?>) {
                 if (!Object.class.equals(typeArgument)) {
@@ -1008,12 +1009,18 @@ public class TypesHelper {
         return true;
     }
 
-    private Type[] effectiveBounds(Type[] bounds) {
+    private static Type[] effectiveBounds(Type[] bounds) {
         if (bounds == null || bounds.length == 0) {
             return new Type[] { Object.class };
         }
         return bounds;
     }
+
+    // -----
+    //
+    // Static methods
+    //
+    // -----
 
     /**
      * Checks if the given types array contains a type variable.
@@ -1072,7 +1079,18 @@ public class TypesHelper {
         return resolvedType;
     }
 
+    /**
+     * Best-effort raw class extraction.
+     *
+     * <p>This method is intentionally conservative and returns {@code null}
+     * when a raw class cannot be directly extracted (for example from
+     * wildcards/type variables/generic arrays).
+     */
     public static Class<?> extractRawClass(Type type) {
+        return extractRawClassFromClassOrParameterized(type);
+    }
+
+    private static Class<?> extractRawClassFromClassOrParameterized(Type type) {
         if (type instanceof Class<?>) {
             return (Class<?>) type;
         }
@@ -1085,12 +1103,17 @@ public class TypesHelper {
         return null;
     }
 
+    /**
+     * Strict raw type resolution.
+     *
+     * <p>Unlike {@link #extractRawClass(Type)}, this method resolves
+     * additional reflective types (generic arrays, wildcards, type variables)
+     * and throws when resolution is not possible.
+     */
     public static Class<?> getRawType(Type type) {
-        if (type instanceof Class<?>) {
-            return (Class<?>) type;
-        }
-        if (type instanceof ParameterizedType) {
-            return (Class<?>) ((ParameterizedType) type).getRawType();
+        Class<?> directRaw = extractRawClassFromClassOrParameterized(type);
+        if (directRaw != null) {
+            return directRaw;
         }
         if (type instanceof GenericArrayType) {
             Type componentType = ((GenericArrayType) type).getGenericComponentType();
@@ -1106,6 +1129,35 @@ public class TypesHelper {
         }
         throw new IllegalArgumentException("Unsupported type: " + type);
     }
+
+    /**
+     * Safe raw type resolution that never throws.
+     *
+     * <p>This method first performs best-effort direct extraction and then
+     * falls back to strict resolution for additional reflective types.
+     * It returns {@code null} when the raw type cannot be resolved.
+     */
+    public static Class<?> safeGetRawType(Type type) {
+        Class<?> directRaw = extractRawClass(type);
+        if (directRaw != null) {
+            return directRaw;
+        }
+        try {
+            return getRawType(type);
+        } catch (RuntimeException ignored) {
+            return null;
+        }
+    }
+
+    public static boolean isSameRawType(Type left, Type right) {
+        Class<?> leftRawType = extractRawClass(left);
+        Class<?> rightRawType = extractRawClass(right);
+        if (leftRawType != null && rightRawType != null) {
+            return leftRawType.equals(rightRawType);
+        }
+        return Objects.equals(left, right);
+    }
+
     /**
      * A class used as a key for the TypeChecker internal cache.
      * As I am still supporting Java 1.8, I can't use a record.
@@ -1133,4 +1185,384 @@ public class TypesHelper {
             return Objects.hash(target, implementation);
         }
     }
+
+    // --- Closure helpers ---
+
+    /**
+     * Returns the unrestricted type closure for a managed bean class.
+     */
+    public static Set<Type> extractTypesFromClass(Class<?> beanClass) {
+        return extractTypesFromClass(beanClass, false);
+    }
+
+    /**
+     * Returns the unrestricted type closure for a managed bean class.
+     *
+     * @param preserveTypeVariableDeclarations when true, generic classes are represented as
+     *                                        parameterized declarations using their type variables
+     */
+    public static Set<Type> extractTypesFromClass(Class<?> beanClass, boolean preserveTypeVariableDeclarations) {
+        Objects.requireNonNull(beanClass, "beanClass cannot be null");
+
+        Set<Type> types = new LinkedHashSet<>();
+        collectTypeClosure(beanClass, types, new HashMap<>(), new LinkedHashSet<>(), preserveTypeVariableDeclarations);
+        types.add(Object.class);
+        return types;
+    }
+
+    /**
+     * Returns the unrestricted type closure for a producer type.
+     */
+    public static Set<Type> extractTypesFromType(Type baseType) {
+        Objects.requireNonNull(baseType, "baseType cannot be null");
+
+        Set<Type> types = new LinkedHashSet<>();
+        Class<?> rawType = getRawType(baseType);
+
+        // CDI 4.1 §3.2.1: for primitive and Java array producer return types,
+        // unrestricted bean types are exactly the return type and Object.
+        if (rawType.isPrimitive() || rawType.isArray()) {
+            types.add(baseType);
+            types.add(Object.class);
+            return types;
+        }
+
+        collectTypeClosure(baseType, types, new HashMap<>(), new LinkedHashSet<>(), false);
+        types.add(Object.class);
+        return types;
+    }
+
+    /**
+     * Returns a parameterized declaration form for a generic class, e.g. {@code Baz.class -> Baz<T>}.
+     * Returns the raw class when the class declares no type parameters.
+     */
+    public static Type parameterizedDeclarationOf(Class<?> rawType) {
+        Objects.requireNonNull(rawType, "rawType cannot be null");
+        TypeVariable<?>[] typeParameters = rawType.getTypeParameters();
+        if (typeParameters.length == 0) {
+            return rawType;
+        }
+        Type ownerType = rawType.getDeclaringClass();
+        return new SimpleParameterizedType(rawType, typeParameters, ownerType);
+    }
+
+    private static void collectTypeClosure(Type type,
+                                           Set<Type> types,
+                                           Map<TypeVariable<?>, Type> inheritedBindings,
+                                           Set<String> visited,
+                                           boolean preserveCurrentRawTypeVariables) {
+        Type resolvedType = resolveType(type, inheritedBindings);
+        Class<?> rawType = getRawType(resolvedType);
+
+        if (rawType == Object.class) {
+            return;
+        }
+
+        String visitKey = resolvedType.getTypeName() + "@" + rawType.getName();
+        if (!visited.add(visitKey)) {
+            return;
+        }
+
+        types.add(toBeanType(resolvedType, rawType, preserveCurrentRawTypeVariables));
+
+        Map<TypeVariable<?>, Type> currentBindings = new HashMap<>(inheritedBindings);
+        if (resolvedType instanceof ParameterizedType) {
+            ParameterizedType parameterizedType = (ParameterizedType) resolvedType;
+            TypeVariable<?>[] typeParameters = rawType.getTypeParameters();
+            Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
+            for (int i = 0; i < typeParameters.length && i < actualTypeArguments.length; i++) {
+                currentBindings.put(typeParameters[i], actualTypeArguments[i]);
+            }
+        }
+
+        for (Type interfaceType : rawType.getGenericInterfaces()) {
+            collectTypeClosure(interfaceType, types, currentBindings, visited, false);
+        }
+
+        Type genericSuperclass = rawType.getGenericSuperclass();
+        if (genericSuperclass != null) {
+            collectTypeClosure(genericSuperclass, types, currentBindings, visited, false);
+        }
+    }
+
+    private static Type toBeanType(Type resolvedType, Class<?> rawType, boolean preserveTypeVariableDeclarations) {
+        if (resolvedType instanceof ParameterizedType) {
+            return resolvedType;
+        }
+        TypeVariable<?>[] typeParameters = rawType.getTypeParameters();
+        if (preserveTypeVariableDeclarations && typeParameters.length > 0) {
+            // For generic bean classes declared as Class<?> (e.g., Baz<T>), preserve the
+            // declaration as a parameterized bean type instead of erasing to raw type.
+            Type ownerType = rawType.getDeclaringClass();
+            return new SimpleParameterizedType(rawType, typeParameters, ownerType);
+        }
+        return rawType;
+    }
+
+    private static Type resolveType(Type type, Map<TypeVariable<?>, Type> bindings) {
+        if (type instanceof TypeVariable<?>) {
+            Type resolved = bindings.get(type);
+            return resolved != null ? resolveType(resolved, bindings) : type;
+        }
+        if (type instanceof ParameterizedType) {
+            ParameterizedType pt = (ParameterizedType) type;
+            Type[] originalArgs = pt.getActualTypeArguments();
+            Type[] resolvedArgs = new Type[originalArgs.length];
+            boolean changed = false;
+            for (int i = 0; i < originalArgs.length; i++) {
+                resolvedArgs[i] = resolveType(originalArgs[i], bindings);
+                if (!resolvedArgs[i].equals(originalArgs[i])) {
+                    changed = true;
+                }
+            }
+            Type owner = pt.getOwnerType();
+            Type resolvedOwner = owner == null ? null : resolveType(owner, bindings);
+            if (resolvedOwner != null && !resolvedOwner.equals(owner)) {
+                changed = true;
+            }
+            return changed ? new SimpleParameterizedType((Class<?>) pt.getRawType(), resolvedArgs, resolvedOwner) : pt;
+        }
+        if (type instanceof GenericArrayType) {
+            GenericArrayType gat = (GenericArrayType) type;
+            Type originalComponent = gat.getGenericComponentType();
+            Type resolvedComponent = resolveType(originalComponent, bindings);
+            return resolvedComponent.equals(originalComponent) ? gat : new SimpleGenericArrayType(resolvedComponent);
+        }
+        if (type instanceof WildcardType) {
+            WildcardType wt = (WildcardType) type;
+            Type[] lower = wt.getLowerBounds();
+            Type[] upper = wt.getUpperBounds();
+            Type[] resolvedLower = new Type[lower.length];
+            Type[] resolvedUpper = new Type[upper.length];
+            boolean changed = false;
+            for (int i = 0; i < lower.length; i++) {
+                resolvedLower[i] = resolveType(lower[i], bindings);
+                if (!resolvedLower[i].equals(lower[i])) {
+                    changed = true;
+                }
+            }
+            for (int i = 0; i < upper.length; i++) {
+                resolvedUpper[i] = resolveType(upper[i], bindings);
+                if (!resolvedUpper[i].equals(upper[i])) {
+                    changed = true;
+                }
+            }
+            return changed ? new SimpleWildcardType(resolvedUpper, resolvedLower) : wt;
+        }
+        return type;
+    }
+
+    // --- Decorator helpers ---
+
+    public static Set<Type> extractDecoratorDecoratedTypes(Class<?> decoratorClass) {
+        if (decoratorClass == null) {
+            return Collections.emptySet();
+        }
+        Set<Type> decoratedTypes = new LinkedHashSet<>();
+        for (Type type : extractTypesFromClass(decoratorClass)) {
+            Class<?> raw = extractRawClass(type);
+            if (raw == null || !raw.isInterface()) {
+                continue;
+            }
+            if (Object.class.equals(raw)
+                    || java.io.Serializable.class.equals(raw)
+                    || Decorator.class.equals(raw)) {
+                continue;
+            }
+            decoratedTypes.add(type);
+        }
+        return decoratedTypes;
+    }
+
+    public static Type findDecoratorTypeInHierarchy(Type source, Class<?> targetRaw, Set<Type> visited) {
+        if (source == null || !visited.add(source)) {
+            return null;
+        }
+
+        Class<?> raw = extractRawClass(source);
+        if (raw == null) {
+            return null;
+        }
+        if (raw.equals(targetRaw)) {
+            return source;
+        }
+
+        for (Type type : raw.getGenericInterfaces()) {
+            Type found = findDecoratorTypeInHierarchy(type, targetRaw, visited);
+            if (found != null) {
+                return found;
+            }
+        }
+
+        return findDecoratorTypeInHierarchy(raw.getGenericSuperclass(), targetRaw, visited);
+    }
+
+    public static boolean decoratorIsActualType(Type type) {
+        return type instanceof Class<?> || type instanceof ParameterizedType;
+    }
+
+    public static Type decoratorFirstUpperBound(TypeVariable<?> variable) {
+        Type[] bounds = variable.getBounds();
+        return bounds.length == 0 ? Object.class : bounds[0];
+    }
+
+    public static boolean decoratorIsAssignable(Type from, Type to) {
+        Class<?> fromRaw = extractRawClass(from);
+        Class<?> toRaw = extractRawClass(to);
+        return fromRaw != null && toRaw != null && toRaw.isAssignableFrom(fromRaw);
+    }
+
+    public static boolean decoratorWildcardMatches(WildcardType wildcard, Type candidate) {
+        for (Type upper : wildcard.getUpperBounds()) {
+            if (!Object.class.equals(upper) && !decoratorIsAssignable(candidate, upper)) {
+                return false;
+            }
+        }
+        for (Type lower : wildcard.getLowerBounds()) {
+            if (!decoratorIsAssignable(lower, candidate)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public static boolean decoratorMatchesDelegateParameter(Type beanParam, Type delegateParam) {
+        if (decoratorIsActualType(beanParam) && decoratorIsActualType(delegateParam)) {
+            Class<?> beanRaw = extractRawClass(beanParam);
+            Class<?> delegateRaw = extractRawClass(delegateParam);
+            if (beanRaw == null || !beanRaw.equals(delegateRaw)) {
+                return false;
+            }
+            if (beanParam instanceof ParameterizedType && delegateParam instanceof ParameterizedType) {
+                return decoratorBeanTypeAssignableToDelegateType(beanParam, delegateParam);
+            }
+            return true;
+        }
+
+        if (delegateParam instanceof WildcardType && decoratorIsActualType(beanParam)) {
+            return decoratorWildcardMatches((WildcardType) delegateParam, beanParam);
+        }
+
+        if (delegateParam instanceof WildcardType && beanParam instanceof TypeVariable<?>) {
+            Type beanUpperBound = decoratorFirstUpperBound((TypeVariable<?>) beanParam);
+            return decoratorWildcardMatches((WildcardType) delegateParam, beanUpperBound);
+        }
+
+        if (delegateParam instanceof TypeVariable<?> && beanParam instanceof TypeVariable<?>) {
+            Type delegateUpper = decoratorFirstUpperBound((TypeVariable<?>) delegateParam);
+            Type beanUpper = decoratorFirstUpperBound((TypeVariable<?>) beanParam);
+            return decoratorIsAssignable(beanUpper, delegateUpper);
+        }
+
+        if (delegateParam instanceof TypeVariable<?> && decoratorIsActualType(beanParam)) {
+            Type delegateUpper = decoratorFirstUpperBound((TypeVariable<?>) delegateParam);
+            return decoratorIsAssignable(beanParam, delegateUpper);
+        }
+
+        return false;
+    }
+
+    public static boolean decoratorBeanTypeAssignableToDelegateType(Type beanType, Type delegateType) {
+        if (beanType == null || delegateType == null) {
+            return false;
+        }
+
+        Class<?> beanRaw = extractRawClass(beanType);
+        Class<?> delegateRaw = extractRawClass(delegateType);
+        if (delegateRaw == null || !delegateRaw.equals(beanRaw)) {
+            return false;
+        }
+
+        if (beanType instanceof Class && delegateType instanceof ParameterizedType) {
+            for (Type delegateArg : ((ParameterizedType) delegateType).getActualTypeArguments()) {
+                if (!Object.class.equals(delegateArg)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        if (beanType instanceof ParameterizedType && delegateType instanceof ParameterizedType) {
+            Type[] beanArgs = ((ParameterizedType) beanType).getActualTypeArguments();
+            Type[] delegateArgs = ((ParameterizedType) delegateType).getActualTypeArguments();
+            if (beanArgs.length != delegateArgs.length) {
+                return false;
+            }
+            for (int i = 0; i < beanArgs.length; i++) {
+                if (!decoratorMatchesDelegateParameter(beanArgs[i], delegateArgs[i])) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        if (beanType instanceof Class && delegateType instanceof Class) {
+            return true;
+        }
+
+        return beanType.equals(delegateType);
+    }
+
+    public static boolean decoratorDelegateTypeCoversDecoratedType(Type delegateType, Type decoratedType) {
+        Class<?> delegateRaw = extractRawClass(delegateType);
+        Class<?> decoratedRaw = extractRawClass(decoratedType);
+        if (delegateRaw == null || decoratedRaw == null || !decoratedRaw.isAssignableFrom(delegateRaw)) {
+            return false;
+        }
+
+        if (!(decoratedType instanceof ParameterizedType)) {
+            return true;
+        }
+
+        Type viewOnDecoratedRaw = findDecoratorTypeInHierarchy(delegateType, decoratedRaw, new HashSet<>());
+        if (viewOnDecoratedRaw == null) {
+            return false;
+        }
+
+        return decoratorBeanTypeAssignableToDelegateType(decoratedType, viewOnDecoratedRaw);
+    }
+
+    public static boolean containsUnresolvableTypeVariable(Type type) {
+        if (type instanceof TypeVariable) {
+            return true;
+        }
+
+        if (type instanceof ParameterizedType) {
+            for (Type argument : ((ParameterizedType) type).getActualTypeArguments()) {
+                if (containsUnresolvableTypeVariable(argument)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        if (type instanceof GenericArrayType) {
+            return containsUnresolvableTypeVariable(((GenericArrayType) type).getGenericComponentType());
+        }
+
+        if (type instanceof WildcardType) {
+            WildcardType wildcardType = (WildcardType) type;
+            for (Type lowerBound : wildcardType.getLowerBounds()) {
+                if (containsUnresolvableTypeVariable(lowerBound)) {
+                    return true;
+                }
+            }
+            for (Type upperBound : wildcardType.getUpperBounds()) {
+                if (containsUnresolvableTypeVariable(upperBound)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        if (type instanceof Class<?>) {
+            Class<?> clazz = (Class<?>) type;
+            if (clazz.isArray()) {
+                return containsUnresolvableTypeVariable(clazz.getComponentType());
+            }
+        }
+
+        return false;
+    }
+
 }

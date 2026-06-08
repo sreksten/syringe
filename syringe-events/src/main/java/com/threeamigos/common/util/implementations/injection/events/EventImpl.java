@@ -9,13 +9,12 @@ import com.threeamigos.common.util.implementations.injection.knowledgebase.Knowl
 import com.threeamigos.common.util.implementations.injection.resolution.BeanImpl;
 import com.threeamigos.common.util.implementations.injection.resolution.BeanResolver;
 import com.threeamigos.common.util.implementations.injection.resolution.InstanceImpl;
-import com.threeamigos.common.util.implementations.injection.types.TypesHelper;
+import com.threeamigos.common.util.implementations.injection.util.TypesHelper;
 import com.threeamigos.common.util.implementations.injection.scopes.InjectionPointImpl;
 import com.threeamigos.common.util.implementations.injection.spi.BeanManagerImpl;
 import com.threeamigos.common.util.implementations.injection.annotations.AnnotationComparator;
 import com.threeamigos.common.util.implementations.injection.resolution.GenericTypeResolver;
 import com.threeamigos.common.util.implementations.injection.util.LifecycleMethodHelper;
-import com.threeamigos.common.util.implementations.injection.types.TypeClosureHelper;
 import com.threeamigos.common.util.implementations.injection.util.tx.TransactionServices;
 import com.threeamigos.common.util.implementations.injection.util.tx.NoOpTransactionServices;
 import com.threeamigos.common.util.implementations.injection.util.tx.TransactionSynchronizationCallbacks;
@@ -65,7 +64,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.*;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
-import static com.threeamigos.common.util.implementations.injection.types.TypesHelper.getRawType;
+import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.*;
 
 /**
  * CDI 4.1 Event implementation for firing synchronous and asynchronous events.
@@ -638,7 +637,7 @@ public class EventImpl<T> implements Event<T>, Serializable {
                         "Qualifier annotation must have @Retention(RUNTIME): " + qualifierType.getName());
             }
 
-            if (!isRepeatableQualifier(qualifierType) && !seenNonRepeatableQualifiers.add(qualifierType)) {
+            if (!hasRepeatableAnnotation(qualifierType) && !seenNonRepeatableQualifiers.add(qualifierType)) {
                 throw new IllegalArgumentException(
                         "Duplicate non-repeatable qualifier type passed to select(): " + qualifierType.getName());
             }
@@ -667,7 +666,7 @@ public class EventImpl<T> implements Event<T>, Serializable {
                     throw new IllegalArgumentException("Qualifier cannot be null");
                 }
                 Class<? extends Annotation> qualifierType = qualifier.annotationType();
-                if (isRepeatableQualifier(qualifierType)) {
+                if (hasRepeatableAnnotation(qualifierType)) {
                     merged.add(qualifier);
                     continue;
                 }
@@ -680,13 +679,13 @@ public class EventImpl<T> implements Event<T>, Serializable {
             merged.removeIf(existingQualifier ->
                     existingQualifier != null &&
                             replacedNonRepeatableTypes.contains(existingQualifier.annotationType()) &&
-                            !isRepeatableQualifier(existingQualifier.annotationType()));
+                            !hasRepeatableAnnotation(existingQualifier.annotationType()));
         }
 
         merged.addAll(replacements.values());
 
         if (containsExplicitNonDefaultQualifier(merged)) {
-            merged.removeIf(qualifier -> qualifier != null && isDefaultQualifierType(qualifier.annotationType()));
+            merged.removeIf(qualifier -> qualifier != null && hasDefaultAnnotation(qualifier.annotationType()));
         }
         return merged;
     }
@@ -700,24 +699,12 @@ public class EventImpl<T> implements Event<T>, Serializable {
                 continue;
             }
             Class<? extends Annotation> qualifierType = qualifier.annotationType();
-            if (isAnyQualifierType(qualifierType) || isDefaultQualifierType(qualifierType)) {
+            if (hasAnyAnnotation(qualifierType) || hasDefaultAnnotation(qualifierType)) {
                 continue;
             }
             return true;
         }
         return false;
-    }
-
-    private boolean isDefaultQualifierType(Class<? extends Annotation> qualifierType) {
-        return hasDefaultAnnotation(qualifierType);
-    }
-
-    private boolean isAnyQualifierType(Class<? extends Annotation> qualifierType) {
-        return hasAnyAnnotation(qualifierType);
-    }
-
-    private boolean isRepeatableQualifier(Class<? extends Annotation> qualifierType) {
-        return hasRepeatableAnnotation(qualifierType);
     }
 
     private boolean hasRuntimeRetention(Class<? extends Annotation> annotationType) {
@@ -748,7 +735,7 @@ public class EventImpl<T> implements Event<T>, Serializable {
     }
 
     private boolean areRuntimeTypeVariablesResolvable(Class<?> runtimeType, Type selectedEventType) {
-        Set<Type> runtimeTypeClosure = TypeClosureHelper.extractTypesFromClass(runtimeType, true);
+        Set<Type> runtimeTypeClosure = extractTypesFromClass(runtimeType, true);
         Map<TypeVariable<?>, Type> resolvedTypeVariables =
                 resolveRuntimeTypeVariables(selectedEventType, runtimeTypeClosure);
 
@@ -919,7 +906,7 @@ public class EventImpl<T> implements Event<T>, Serializable {
 
     private Set<Type> getResolvedEventDispatchTypes(Object event) {
         Class<?> runtimeType = event.getClass();
-        Set<Type> runtimeTypeClosure = TypeClosureHelper.extractTypesFromClass(runtimeType, true);
+        Set<Type> runtimeTypeClosure = extractTypesFromClass(runtimeType, true);
         Map<TypeVariable<?>, Type> resolvedTypeVariables =
                 resolveRuntimeTypeVariables(eventType, runtimeTypeClosure);
 
@@ -932,7 +919,7 @@ public class EventImpl<T> implements Event<T>, Serializable {
 
     private boolean isNotMatchingObservedType(Type observedType, Set<Type> eventDispatchTypes) {
         for (Type dispatchType : eventDispatchTypes) {
-            if (typesHelper.isEventTypeAssignable(observedType, dispatchType)) {
+            if (isEventTypeAssignable(observedType, dispatchType)) {
                 return false;
             }
         }
@@ -1003,49 +990,6 @@ public class EventImpl<T> implements Event<T>, Serializable {
         TRANSACTION_DOWNGRADE_WARNED.set(false);
         INACTIVE_SCOPE_WARNED.clear();
         shutdownDefaultAsyncExecutor();
-    }
-
-    private boolean containsUnresolvableTypeVariable(Type type) {
-        if (type instanceof TypeVariable) {
-            return true;
-        }
-
-        if (type instanceof ParameterizedType) {
-            for (Type argument : ((ParameterizedType) type).getActualTypeArguments()) {
-                if (containsUnresolvableTypeVariable(argument)) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        if (type instanceof GenericArrayType) {
-            return containsUnresolvableTypeVariable(((GenericArrayType) type).getGenericComponentType());
-        }
-
-        if (type instanceof WildcardType) {
-            WildcardType wildcardType = (WildcardType) type;
-            for (Type lowerBound : wildcardType.getLowerBounds()) {
-                if (containsUnresolvableTypeVariable(lowerBound)) {
-                    return true;
-                }
-            }
-            for (Type upperBound : wildcardType.getUpperBounds()) {
-                if (containsUnresolvableTypeVariable(upperBound)) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        if (type instanceof Class<?>) {
-            Class<?> clazz = (Class<?>) type;
-            if (clazz.isArray()) {
-                return containsUnresolvableTypeVariable(clazz.getComponentType());
-            }
-        }
-
-        return false;
     }
 
     /**

@@ -1,6 +1,6 @@
 package com.threeamigos.common.util.implementations.injection.events;
 
-import com.threeamigos.common.util.implementations.injection.types.TypesHelper;
+import com.threeamigos.common.util.implementations.injection.util.TypesHelper;
 import jakarta.enterprise.event.Reception;
 import jakarta.enterprise.event.TransactionPhase;
 import jakarta.enterprise.inject.spi.Bean;

@@ -12,7 +12,7 @@ import java.util.List;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasAnyAnnotation;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasNewAnnotation;
-import static com.threeamigos.common.util.implementations.injection.types.TypesHelper.getRawType;
+import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.getRawType;
 
 /**
  * Helper utilities for legacy CDI 1.0 {@code @javax.enterprise.inject.New} support.

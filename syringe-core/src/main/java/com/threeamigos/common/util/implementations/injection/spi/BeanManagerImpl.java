@@ -28,9 +28,8 @@ import com.threeamigos.common.util.implementations.injection.spi.support.SpiSupp
 import com.threeamigos.common.util.implementations.injection.spi.support.SyntheticBeanPriority;
 import com.threeamigos.common.util.implementations.injection.spi.support.SyntheticProducerBeanMarker;
 import com.threeamigos.common.util.implementations.injection.spi.spievents.SimpleAnnotatedType;
-import com.threeamigos.common.util.implementations.injection.types.TypesHelper;
+import com.threeamigos.common.util.implementations.injection.util.TypesHelper;
 import com.threeamigos.common.util.implementations.injection.util.LifecycleMethodHelper;
-import com.threeamigos.common.util.implementations.injection.types.TypeClosureHelper;
 import com.threeamigos.common.util.implementations.injection.util.tx.TransactionServicesFactory;
 import jakarta.annotation.Nonnull;
 import jakarta.el.ELResolver;
@@ -67,7 +66,7 @@ import java.util.stream.Collectors;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.*;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
-import static com.threeamigos.common.util.implementations.injection.types.TypesHelper.getRawType;
+import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.*;
 
 /**
  * Implementation of the CDI 4.1 BeanManager interface.
@@ -5021,7 +5020,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
     private Set<Type> extractTypesFromAnnotatedType(AnnotatedType<?> type) {
         Set<Type> unrestrictedTypes = new LinkedHashSet<>(type.getTypeClosure());
         if (unrestrictedTypes.isEmpty()) {
-            unrestrictedTypes.addAll(TypeClosureHelper.extractTypesFromClass(type.getJavaClass()));
+            unrestrictedTypes.addAll(extractTypesFromClass(type.getJavaClass()));
         }
 
         Annotation typedAnnotation = findTypedAnnotation(type.getAnnotations());
@@ -5036,7 +5035,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
      * Extracts bean types from an AnnotatedMember (producer field or method).
      */
     private Set<Type> extractTypesFromMember(AnnotatedMember<?> member) {
-        Set<Type> unrestrictedTypes = TypeClosureHelper.extractTypesFromType(member.getBaseType());
+        Set<Type> unrestrictedTypes = extractTypesFromType(member.getBaseType());
         Annotation typedAnnotation = findTypedAnnotation(member.getAnnotations());
         Set<Type> resultingTypes = unrestrictedTypes;
         if (typedAnnotation != null) {

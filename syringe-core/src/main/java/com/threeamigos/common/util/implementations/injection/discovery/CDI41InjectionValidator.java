@@ -8,7 +8,7 @@ import com.threeamigos.common.util.implementations.injection.annotations.legacy.
 import com.threeamigos.common.util.implementations.injection.annotations.legacy.NoOpLegacyNewSupport;
 import com.threeamigos.common.util.implementations.injection.resolution.BeanImpl;
 import com.threeamigos.common.util.implementations.injection.resolution.ProducerBean;
-import com.threeamigos.common.util.implementations.injection.types.TypesHelper;
+import com.threeamigos.common.util.implementations.injection.util.TypesHelper;
 import com.threeamigos.common.util.implementations.injection.scopes.InjectionPointImpl;
 import com.threeamigos.common.util.implementations.injection.annotations.AnnotationComparator;
 import com.threeamigos.common.util.implementations.injection.spi.support.SyntheticBeanMarker;
@@ -33,8 +33,8 @@ import java.lang.annotation.Annotation;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.*;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
-import static com.threeamigos.common.util.implementations.injection.types.TypesHelper.getRawType;
-import static com.threeamigos.common.util.implementations.injection.types.TypesHelper.normalizePrimitiveType;
+import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.getRawType;
+import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.normalizePrimitiveType;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;

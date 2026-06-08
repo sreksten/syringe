@@ -28,7 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasAroundInvokeAnnotation;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasExcludeClassInterceptorsAnnotation;
-import static com.threeamigos.common.util.implementations.injection.types.ClassHelper.collectClassHierarchyFromObject;
+import static com.threeamigos.common.util.implementations.injection.util.ClassHelper.collectClassHierarchyFromObject;
 
 /**
  * CDI 4.1 - 2 - A <i>bean</i> is a source of contextual objects that define application state and/or logic.

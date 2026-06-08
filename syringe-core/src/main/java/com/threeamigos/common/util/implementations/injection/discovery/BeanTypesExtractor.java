@@ -1,7 +1,6 @@
 package com.threeamigos.common.util.implementations.injection.discovery;
 
 import com.threeamigos.common.util.implementations.injection.util.SimpleParameterizedType;
-import com.threeamigos.common.util.implementations.injection.types.TypeClosureHelper;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.GenericArrayType;
@@ -20,7 +19,7 @@ import java.util.Set;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.getTypedAnnotation;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasTypedAnnotation;
-import static com.threeamigos.common.util.implementations.injection.types.TypesHelper.getRawType;
+import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.*;
 
 /**
  * Extracts bean type sets for managed beans and producers.
@@ -29,6 +28,15 @@ import static com.threeamigos.common.util.implementations.injection.types.TypesH
  * or reuse safely across threads.
  */
 public final class BeanTypesExtractor {
+
+    /**
+     * Extracts resulting bean types for a producer method/field type.
+     *
+     * <p>The result is the unrestricted producer type set with illegal bean types removed.
+     */
+    public ExtractionResult extractProducerBeanTypes(Type producerType) {
+        return extractProducerBeanTypes(producerType, null);
+    }
 
     /**
      * Extracts resulting bean types for a managed bean class.
@@ -40,7 +48,7 @@ public final class BeanTypesExtractor {
         Objects.requireNonNull(beanClass, "beanClass cannot be null");
 
         List<String> definitionErrors = new ArrayList<>();
-        Set<Type> unrestrictedTypes = TypeClosureHelper.extractTypesFromClass(beanClass);
+        Set<Type> unrestrictedTypes = extractTypesFromClass(beanClass);
         Set<Type> resultingTypes = unrestrictedTypes;
         if (hasTypedAnnotation(beanClass)) {
             Annotation typedAnnotation = getTypedAnnotation(beanClass);
@@ -53,22 +61,13 @@ public final class BeanTypesExtractor {
     }
 
     /**
-     * Extracts resulting bean types for a producer method/field type.
-     *
-     * <p>The result is the unrestricted producer type set with illegal bean types removed.
-     */
-    public ExtractionResult extractProducerBeanTypes(Type producerType) {
-        return extractProducerBeanTypes(producerType, null);
-    }
-
-    /**
      * Extracts resulting bean types for a producer method/field type with optional producer-member annotations.
      */
     public ExtractionResult extractProducerBeanTypes(Type producerType, AnnotatedElement producerElement) {
         Objects.requireNonNull(producerType, "producerType cannot be null");
 
         List<String> definitionErrors = new ArrayList<>();
-        Set<Type> unrestrictedTypes = TypeClosureHelper.extractTypesFromType(producerType);
+        Set<Type> unrestrictedTypes = extractTypesFromType(producerType);
         Class<?> producerRawType = getRawType(producerType);
         if (producerType instanceof ParameterizedType
                 && shouldAddRawProducerType((ParameterizedType) producerType, producerRawType)) {

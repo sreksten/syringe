@@ -9,7 +9,7 @@ import com.threeamigos.common.util.implementations.injection.knowledgebase.Scope
 import com.threeamigos.common.util.implementations.injection.scopes.InjectionPointImpl;
 import com.threeamigos.common.util.implementations.injection.resolution.BeanImpl;
 import com.threeamigos.common.util.implementations.injection.resolution.ProducerBean;
-import com.threeamigos.common.util.implementations.injection.types.TypesHelper;
+import com.threeamigos.common.util.implementations.injection.util.TypesHelper;
 import jakarta.enterprise.inject.spi.Bean;
 import jakarta.enterprise.inject.spi.Annotated;
 import jakarta.enterprise.inject.spi.DefinitionException;
@@ -26,8 +26,7 @@ import java.util.stream.Collectors;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.*;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
-import static com.threeamigos.common.util.implementations.injection.types.TypesHelper.*;
-import static com.threeamigos.common.util.implementations.injection.types.TypeClosureHelper.parameterizedDeclarationOf;
+import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.*;
 
 /**
  * Validates that a Java class is a CDI Managed Bean, according to CDI 4.1 rules.

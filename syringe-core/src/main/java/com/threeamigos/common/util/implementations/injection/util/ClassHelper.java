@@ -1,4 +1,4 @@
-package com.threeamigos.common.util.implementations.injection.types;
+package com.threeamigos.common.util.implementations.injection.util;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -78,4 +78,15 @@ public class ClassHelper {
         String trimmed = beanName.trim();
         return trimmed.isEmpty() ? null : trimmed;
     }
+
+    public static int getClassDepth(Class<?> clazz) {
+        int depth = 0;
+        Class<?> current = clazz;
+        while (current != null && current != Object.class) {
+            depth++;
+            current = current.getSuperclass();
+        }
+        return depth;
+    }
+
 }

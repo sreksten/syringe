@@ -25,7 +25,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
-import static com.threeamigos.common.util.implementations.injection.types.ClassHelper.normalizeBeanName;
+import static com.threeamigos.common.util.implementations.injection.util.ClassHelper.normalizeBeanName;
 
 /**
  * Extracted bean/producer registration logic from CDI41BeanValidator.
