@@ -33,8 +33,10 @@ import java.lang.annotation.Annotation;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.*;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
-import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.getRawType;
-import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.normalizePrimitiveType;
+import static com.threeamigos.common.util.implementations.injection.util.BeansHelper.extractPriorityFromProducerMember;
+import static com.threeamigos.common.util.implementations.injection.util.BeansHelper.filterSpecializedBeans;
+import static com.threeamigos.common.util.implementations.injection.util.ClassHelper.collectClassHierarchy;
+import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.*;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -43,8 +45,6 @@ import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.lang.reflect.TypeVariable;
-import java.lang.reflect.WildcardType;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -1961,7 +1961,7 @@ public class CDI41InjectionValidator {
                 return producerPriority;
             }
 
-            Integer declaringPriority = extractPriorityFromClass(producerBean.getDeclaringClass());
+            Integer declaringPriority = getPriorityValue(producerBean.getDeclaringClass());
             if (declaringPriority != null) {
                 return declaringPriority;
             }
@@ -1981,7 +1981,7 @@ public class CDI41InjectionValidator {
             }
         }
 
-        Integer classPriority = extractPriorityFromClass(bean.getBeanClass());
+        Integer classPriority = getPriorityValue(bean.getBeanClass());
         if (classPriority != null) {
             return classPriority;
         }
@@ -2002,43 +2002,6 @@ public class CDI41InjectionValidator {
             return null;
         }
         return Integer.MAX_VALUE - applicationOrder;
-    }
-
-    private Integer extractPriorityFromProducerMember(ProducerBean<?> producerBean) {
-        if (producerBean.getProducerMethod() != null) {
-            return extractPriorityFromAnnotations(producerBean.getProducerMethod().getAnnotations());
-        }
-        if (producerBean.getProducerField() != null) {
-            return extractPriorityFromAnnotations(producerBean.getProducerField().getAnnotations());
-        }
-        return null;
-    }
-
-    private Integer extractPriorityFromClass(Class<?> beanClass) {
-        if (beanClass == null) {
-            return null;
-        }
-        return extractPriorityFromAnnotations(beanClass.getAnnotations());
-    }
-
-    private Integer extractPriorityFromAnnotations(Annotation[] annotations) {
-        if (annotations == null) {
-            return null;
-        }
-        for (Annotation annotation : annotations) {
-            if (PRIORITY.matches(annotation.annotationType())) {
-                try {
-                    Method valueMethod = annotation.annotationType().getMethod("value");
-                    Object value = valueMethod.invoke(annotation);
-                    if (value instanceof Integer) {
-                        return (Integer) value;
-                    }
-                } catch (ReflectiveOperationException ignored) {
-                    return null;
-                }
-            }
-        }
-        return null;
     }
 
     /**
@@ -2140,7 +2103,7 @@ public class CDI41InjectionValidator {
         // and registered as beans in KnowledgeBase, so they're included in
         // the validBeans collection above. No special handling is needed here.
 
-        return applySpecializationFiltering(matches);
+        return filterSpecializedBeans(matches);
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
@@ -2162,7 +2125,7 @@ public class CDI41InjectionValidator {
             }
             matches.add(legacyNewSupport.adaptLegacyNewBean((Bean) bean));
         }
-        return applySpecializationFiltering(matches);
+        return filterSpecializedBeans(matches);
     }
 
     private boolean isBeanEnabledForResolution(Bean<?> bean) {
@@ -2267,11 +2230,11 @@ public class CDI41InjectionValidator {
     private boolean isTypeCompatible(Type requiredType, Set<Type> beanTypes) {
         for (Type beanType : beanTypes) {
             try {
-                if (!sameRawType(requiredType, beanType)) {
+                if (notSameRawType(requiredType, beanType)) {
                     continue;
                 }
                 // Use TypeChecker for proper type matching with generic support
-                if (typesHelper.isLookupTypeAssignable(requiredType, beanType)) {
+                if (isLookupTypeAssignable(requiredType, beanType)) {
                     return true;
                 }
             } catch (Exception e) {
@@ -2281,30 +2244,6 @@ public class CDI41InjectionValidator {
 
         return false;
     }
-
-    private boolean sameRawType(Type requiredType, Type beanType) {
-        if (requiredType == null || beanType == null) {
-            return false;
-        }
-        if (requiredType instanceof TypeVariable || requiredType instanceof WildcardType) {
-            return true;
-        }
-
-        Class<?> requiredRaw;
-        Class<?> beanRaw;
-        try {
-            requiredRaw = normalizePrimitiveType(getRawType(requiredType));
-            beanRaw = normalizePrimitiveType(getRawType(beanType));
-        } catch (RuntimeException e) {
-            return true;
-        }
-
-        if (requiredRaw == null || beanRaw == null) {
-            return true;
-        }
-        return requiredRaw.equals(beanRaw);
-    }
-
     /**
      * Checks if the required qualifiers are compatible with the bean's qualifiers.
      *
@@ -2379,21 +2318,11 @@ public class CDI41InjectionValidator {
         if (beanName == null || beanName.isEmpty()) {
             return false;
         }
-        String requiredNamedValue = extractNamedValue(requiredQualifier).trim();
+        String requiredNamedValue = getNamedValue(requiredQualifier).trim();
         if (requiredNamedValue.isEmpty()) {
             return false;
         }
         return requiredNamedValue.equals(beanName);
-    }
-
-    private String extractNamedValue(Annotation namedQualifier) {
-        try {
-            Method valueMethod = namedQualifier.annotationType().getMethod("value");
-            Object value = valueMethod.invoke(namedQualifier);
-            return value == null ? "" : value.toString();
-        } catch (ReflectiveOperationException ignored) {
-            return "";
-        }
     }
 
     /**
@@ -2538,7 +2467,7 @@ public class CDI41InjectionValidator {
             return;
         }
 
-        Set<Bean<?>> specializationFiltered = applySpecializationFiltering(new HashSet<>(validBeans));
+        Set<Bean<?>> specializationFiltered = filterSpecializedBeans(new HashSet<>(validBeans));
 
         for (Bean<?> bean : specializationFiltered) {
             if (!(bean instanceof BeanImpl)) {
@@ -2654,7 +2583,7 @@ public class CDI41InjectionValidator {
                 continue;
             }
             Annotation namedQualifier = findNamedQualifier(parameter.annotations);
-            if (namedQualifier != null && extractNamedValue(namedQualifier).trim().isEmpty()) {
+            if (namedQualifier != null && getNamedValue(namedQualifier).trim().isEmpty()) {
                 knowledgeBase.addDefinitionError(
                         formatObserverParameter(parameter.parameter, method, declaringBean) +
                                 ": @Named injection point must declare a non-empty value on non-field injection points");
@@ -2706,18 +2635,6 @@ public class CDI41InjectionValidator {
         String parameterName = parameter != null ? safeParameterName(parameter) : "<param>";
         return "Parameter " + parameterName + " of " + method.getName() + " of class " +
                 (declaringBean != null ? declaringBean.getBeanClass().getName() : method.getDeclaringClass().getName());
-    }
-
-    private Annotation findNamedQualifier(Annotation[] annotations) {
-        if (annotations == null) {
-            return null;
-        }
-        for (Annotation annotation : annotations) {
-            if (annotation != null && hasNamedAnnotation(annotation.annotationType())) {
-                return annotation;
-            }
-        }
-        return null;
     }
 
     private String safeParameterName(Parameter parameter) {
@@ -2801,12 +2718,7 @@ public class CDI41InjectionValidator {
             return new ArrayList<>(bySignature.values());
         }
 
-        List<Class<?>> hierarchy = new ArrayList<>();
-        Class<?> current = beanClass;
-        while (current != null && !Object.class.equals(current)) {
-            hierarchy.add(0, current);
-            current = current.getSuperclass();
-        }
+        List<Class<?>> hierarchy = collectClassHierarchy(beanClass);
 
         Map<String, ObserverMethodCandidate> bySignature = new LinkedHashMap<>();
         for (Class<?> type : hierarchy) {
@@ -2857,52 +2769,6 @@ public class CDI41InjectionValidator {
         return result;
     }
 
-    private boolean hasObservesAnnotationIn(Annotation[] annotations) {
-        return getObservesAnnotationFrom(annotations) != null;
-    }
-
-    private boolean hasObservesAsyncAnnotationIn(Annotation[] annotations) {
-        return getObservesAsyncAnnotationFrom(annotations) != null;
-    }
-
-    private jakarta.enterprise.event.Observes getObservesAnnotationFrom(Annotation[] annotations) {
-        for (Annotation annotation : annotations) {
-            if (annotation instanceof jakarta.enterprise.event.Observes) {
-                return (jakarta.enterprise.event.Observes) annotation;
-            }
-        }
-        return null;
-    }
-
-    private jakarta.enterprise.event.ObservesAsync getObservesAsyncAnnotationFrom(Annotation[] annotations) {
-        for (Annotation annotation : annotations) {
-            if (annotation instanceof jakarta.enterprise.event.ObservesAsync) {
-                return (jakarta.enterprise.event.ObservesAsync) annotation;
-            }
-        }
-        return null;
-    }
-
-    private Integer getPriorityValueFromAnnotations(Annotation[] annotations) {
-        for (Annotation annotation : annotations) {
-            if (annotation == null) {
-                continue;
-            }
-            if (PRIORITY.matches(annotation.annotationType())) {
-                try {
-                    Method valueMethod = annotation.annotationType().getMethod("value");
-                    Object value = valueMethod.invoke(annotation);
-                    if (value instanceof Integer) {
-                        return (Integer) value;
-                    }
-                } catch (ReflectiveOperationException ignored) {
-                    // Ignore malformed annotation implementation and treat as absent.
-                }
-            }
-        }
-        return null;
-    }
-
     private static final class ObserverMethodCandidate {
         private final Method method;
         private final AnnotatedMethod<?> annotatedMethod;
@@ -2933,45 +2799,4 @@ public class CDI41InjectionValidator {
         }
     }
 
-    /**
-     * Basic specialization filtering: if a bean specializes its direct superclass, remove the
-     * specialized superclass from candidates.
-     */
-    private Set<Bean<?>> applySpecializationFiltering(Set<Bean<?>> candidates) {
-        if (candidates == null || candidates.size() < 2) {
-            return candidates;
-        }
-
-        Set<Class<?>> specializedSuperclasses = new HashSet<>();
-        for (Bean<?> candidate : candidates) {
-            Class<?> beanClass = candidate.getBeanClass();
-            if (hasSpecializesAnnotation(beanClass)) {
-                specializedSuperclasses.addAll(collectSpecializedSuperclasses(beanClass));
-            }
-        }
-
-        if (specializedSuperclasses.isEmpty()) {
-            return candidates;
-        }
-
-        return candidates.stream()
-                .filter(candidate -> !specializedSuperclasses.contains(candidate.getBeanClass()))
-                .collect(Collectors.toCollection(HashSet::new));
-    }
-
-    private Set<Class<?>> collectSpecializedSuperclasses(Class<?> beanClass) {
-        Set<Class<?>> out = new HashSet<>();
-        if (!hasSpecializesAnnotation(beanClass)) {
-            return out;
-        }
-        Class<?> current = beanClass.getSuperclass();
-        while (current != null && !Object.class.equals(current)) {
-            out.add(current);
-            if (!hasSpecializesAnnotation(current)) {
-                break;
-            }
-            current = current.getSuperclass();
-        }
-        return out;
-    }
 }

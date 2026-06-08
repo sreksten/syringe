@@ -302,7 +302,7 @@ public class BeanRegistrationService {
     public String extractProducerName(AnnotatedElement element) {
         Annotation named = findNamedQualifier(validator.annotationsOf(element));
         if (named != null) {
-            String value = readNamedValue(named);
+            String value = getNamedValue(named);
             if (value != null && !value.isEmpty()) {
                 return value;
             }
@@ -457,16 +457,6 @@ public class BeanRegistrationService {
             return extractedTypes;
         }
         return new LinkedHashSet<>(overrideTypes);
-    }
-
-    private String readNamedValue(Annotation namedAnnotation) {
-        try {
-            Method value = namedAnnotation.annotationType().getMethod("value");
-            Object raw = value.invoke(namedAnnotation);
-            return raw == null ? "" : raw.toString();
-        } catch (ReflectiveOperationException ignored) {
-            return "";
-        }
     }
 
     private Annotation createNamedQualifier(Class<? extends Annotation> namedType, String value) {

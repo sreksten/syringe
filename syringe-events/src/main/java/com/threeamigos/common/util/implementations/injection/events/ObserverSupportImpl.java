@@ -52,7 +52,7 @@ import static com.threeamigos.common.util.implementations.injection.annotations.
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasObservesAsyncAnnotationIn;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.resolveWithAnnotationsFilter;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.getPriorityValue;
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasSpecializesAnnotation;
+import static com.threeamigos.common.util.implementations.injection.util.BeansHelper.filterSpecializedBeans;
 import static com.threeamigos.common.util.implementations.injection.spi.SPIUtils.isContainerLifecycleObservedType;
 import static com.threeamigos.common.util.implementations.injection.util.BeansHelper.isBeanEnabledForObserverLifecycle;
 import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.extractRawClass;
@@ -372,58 +372,12 @@ public class ObserverSupportImpl implements ObserverSupport {
             candidates.add(bean);
         }
 
-        return applyObserverSpecializationFiltering(candidates);
-    }
-
-    private Set<Bean<?>> applyObserverSpecializationFiltering(Set<Bean<?>> candidates) {
-        if (candidates == null || candidates.size() < 2) {
-            return candidates;
-        }
-
-        Set<Class<?>> specializedSuperclasses = new HashSet<>();
-        for (Bean<?> candidate : candidates) {
-            Class<?> beanClass = candidate.getBeanClass();
-            if (hasSpecializesAnnotation(beanClass)) {
-                specializedSuperclasses.addAll(collectSpecializedSuperclasses(beanClass));
-            }
-        }
-
-        if (specializedSuperclasses.isEmpty()) {
-            return candidates;
-        }
-
-        Set<Bean<?>> filtered = new LinkedHashSet<>();
-        for (Bean<?> candidate : candidates) {
-            if (!specializedSuperclasses.contains(candidate.getBeanClass())) {
-                filtered.add(candidate);
-            }
-        }
-        return filtered;
-    }
-
-    private Set<Class<?>> collectSpecializedSuperclasses(Class<?> beanClass) {
-        Set<Class<?>> out = new HashSet<>();
-        if (!hasSpecializesAnnotation(beanClass)) {
-            return out;
-        }
-        Class<?> current = beanClass.getSuperclass();
-        while (current != null && !Object.class.equals(current)) {
-            out.add(current);
-            if (!hasSpecializesAnnotation(current)) {
-                break;
-            }
-            current = current.getSuperclass();
-        }
-        return out;
+        return filterSpecializedBeans(candidates);
     }
 
     private List<Method> collectObserverCandidateMethods(Class<?> beanClass) {
-        List<Class<?>> hierarchy = new ArrayList<>();
-        Class<?> current = beanClass;
-        while (current != null && !Object.class.equals(current)) {
-            hierarchy.add(0, current);
-            current = current.getSuperclass();
-        }
+        List<Class<?>> hierarchy = com.threeamigos.common.util.implementations.injection.util.ClassHelper
+                .collectClassHierarchy(beanClass);
 
         Map<String, Method> bySignature = new LinkedHashMap<>();
         for (Class<?> type : hierarchy) {

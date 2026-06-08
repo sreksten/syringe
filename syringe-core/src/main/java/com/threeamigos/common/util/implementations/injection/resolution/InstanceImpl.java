@@ -1,6 +1,5 @@
 package com.threeamigos.common.util.implementations.injection.resolution;
 
-import com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum;
 import com.threeamigos.common.util.implementations.injection.spi.BeanManagerImpl;
 import com.threeamigos.common.util.implementations.injection.util.LifecycleMethodHelper;
 import jakarta.annotation.Nonnull;
@@ -15,7 +14,6 @@ import jakarta.enterprise.util.TypeLiteral;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -25,6 +23,7 @@ import java.util.function.Function;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.PRE_DESTROY;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
+import static com.threeamigos.common.util.implementations.injection.util.BeansHelper.extractPriorityFromProducerMember;
 import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.getRawType;
 
 /**
@@ -602,7 +601,7 @@ public class InstanceImpl<T> implements Instance<T>, Serializable {
                 return producerPriority;
             }
 
-            return extractPriorityFromClass(producerBean.getDeclaringClass());
+            return getPriorityValue(producerBean.getDeclaringClass());
         }
 
         if (bean instanceof BeanImpl) {
@@ -612,45 +611,7 @@ public class InstanceImpl<T> implements Instance<T>, Serializable {
             }
         }
 
-        return extractPriorityFromClass(bean.getBeanClass());
-    }
-
-    private Integer extractPriorityFromProducerMember(ProducerBean<?> producerBean) {
-        if (producerBean.getProducerMethod() != null) {
-            return extractPriorityFromAnnotations(producerBean.getProducerMethod().getAnnotations());
-        }
-        if (producerBean.getProducerField() != null) {
-            return extractPriorityFromAnnotations(producerBean.getProducerField().getAnnotations());
-        }
-        return null;
-    }
-
-    private Integer extractPriorityFromClass(Class<?> beanClass) {
-        if (beanClass == null) {
-            return null;
-        }
-        return extractPriorityFromAnnotations(beanClass.getAnnotations());
-    }
-
-    private Integer extractPriorityFromAnnotations(Annotation[] annotations) {
-        if (annotations == null) {
-            return null;
-        }
-        for (Annotation annotation : annotations) {
-            if (AnnotationsEnum.PRIORITY
-                    .matches(annotation.annotationType())) {
-                try {
-                    Method valueMethod = annotation.annotationType().getMethod("value");
-                    Object value = valueMethod.invoke(annotation);
-                    if (value instanceof Integer) {
-                        return (Integer) value;
-                    }
-                } catch (ReflectiveOperationException ignored) {
-                    return null;
-                }
-            }
-        }
-        return null;
+        return getPriorityValue(bean.getBeanClass());
     }
 
     @SuppressWarnings("unchecked")

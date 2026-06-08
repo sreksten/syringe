@@ -45,8 +45,11 @@ import java.util.stream.Collectors;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.*;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
+import static com.threeamigos.common.util.implementations.injection.util.BeansHelper.extractPriorityFromProducerMember;
+import static com.threeamigos.common.util.implementations.injection.util.BeansHelper.filterSpecializedBeans;
+import static com.threeamigos.common.util.implementations.injection.util.ClassHelper.packageName;
 import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.getRawType;
-import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.normalizePrimitiveType;
+import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.notSameRawType;
 
 /**
  * Resolves dependencies by finding matching beans from the KnowledgeBase.
@@ -346,7 +349,7 @@ public class BeanResolver implements DependencyResolver {
             }
         }
 
-        return applySpecializationFiltering(matches);
+        return filterSpecializedBeans(matches);
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -396,7 +399,7 @@ public class BeanResolver implements DependencyResolver {
             matches.add(legacyNewSupport.adaptLegacyNewBean((Bean) bean));
         }
 
-        return applySpecializationFiltering(matches);
+        return filterSpecializedBeans(matches);
     }
 
     private boolean qualifiersMatchIncludingBeanName(Set<Annotation> requiredQualifiers, Bean<?> bean) {
@@ -490,72 +493,6 @@ public class BeanResolver implements DependencyResolver {
         }
 
         return Optional.of(winner);
-    }
-
-    private boolean notSameRawType(Type requiredType, Type beanType) {
-        if (requiredType == null || beanType == null) {
-            return true;
-        }
-        if (requiredType instanceof TypeVariable ||
-                requiredType instanceof WildcardType) {
-            return false;
-        }
-
-        Class<?> requiredRaw;
-        Class<?> beanRaw;
-        try {
-            requiredRaw = normalizePrimitiveType(getRawType(requiredType));
-            beanRaw = normalizePrimitiveType(getRawType(beanType));
-        } catch (RuntimeException e) {
-            return false;
-        }
-
-        if (requiredRaw == null || beanRaw == null) {
-            return false;
-        }
-        return !requiredRaw.equals(beanRaw);
-    }
-
-    /**
-     * Basic specialization filtering: if a bean specializes its direct superclass, remove the
-     * specialized superclass from candidates.
-     */
-    private Collection<Bean<?>> applySpecializationFiltering(Collection<Bean<?>> candidates) {
-        if (candidates == null || candidates.size() < 2) {
-            return candidates;
-        }
-
-        Set<Class<?>> specializedSuperclasses = new HashSet<>();
-        for (Bean<?> candidate : candidates) {
-            Class<?> beanClass = candidate.getBeanClass();
-            if (hasSpecializesAnnotation(beanClass)) {
-                specializedSuperclasses.addAll(collectSpecializedSuperclasses(beanClass));
-            }
-        }
-
-        if (specializedSuperclasses.isEmpty()) {
-            return candidates;
-        }
-
-        return candidates.stream()
-                .filter(candidate -> !specializedSuperclasses.contains(candidate.getBeanClass()))
-                .collect(Collectors.toList());
-    }
-
-    private Set<Class<?>> collectSpecializedSuperclasses(Class<?> beanClass) {
-        Set<Class<?>> out = new HashSet<>();
-        if (!hasSpecializesAnnotation(beanClass)) {
-            return out;
-        }
-        Class<?> current = beanClass.getSuperclass();
-        while (current != null && !Object.class.equals(current)) {
-            out.add(current);
-            if (!hasSpecializesAnnotation(current)) {
-                break;
-            }
-            current = current.getSuperclass();
-        }
-        return out;
     }
 
     private Object resolveDecoratorMetadata(InjectionPoint injectionPoint, ParameterizedType requiredType) {
@@ -741,7 +678,7 @@ public class BeanResolver implements DependencyResolver {
                 return producerPriority;
             }
 
-            Integer declaringPriority = extractPriorityFromClass(producerBean.getDeclaringClass());
+            Integer declaringPriority = getPriorityValue(producerBean.getDeclaringClass());
             if (declaringPriority != null) {
                 return declaringPriority;
             }
@@ -761,7 +698,7 @@ public class BeanResolver implements DependencyResolver {
             }
         }
 
-        Integer classPriority = extractPriorityFromClass(bean.getBeanClass());
+        Integer classPriority = getPriorityValue(bean.getBeanClass());
         if (classPriority != null) {
             return classPriority;
         }
@@ -782,45 +719,6 @@ public class BeanResolver implements DependencyResolver {
             return null;
         }
         return Integer.MAX_VALUE - applicationOrder;
-    }
-
-    private Integer extractPriorityFromProducerMember(ProducerBean<?> producerBean) {
-        if (producerBean.getProducerMethod() != null) {
-            return extractPriorityFromAnnotations(producerBean.getProducerMethod().getAnnotations());
-        }
-        if (producerBean.getProducerField() != null) {
-            return extractPriorityFromAnnotations(producerBean.getProducerField().getAnnotations());
-        }
-        return null;
-    }
-
-    private Integer extractPriorityFromClass(Class<?> beanClass) {
-        if (beanClass == null) {
-            return null;
-        }
-        return extractPriorityFromAnnotations(beanClass.getAnnotations());
-    }
-
-    private Integer extractPriorityFromAnnotations(Annotation[] annotations) {
-        if (annotations == null) {
-            return null;
-        }
-
-        for (Annotation annotation : annotations) {
-            if (PRIORITY.matches(annotation.annotationType())) {
-                try {
-                    Method valueMethod = annotation.annotationType().getMethod("value");
-                    Object value = valueMethod.invoke(annotation);
-                    if (value instanceof Integer) {
-                        return (Integer) value;
-                    }
-                } catch (ReflectiveOperationException ignored) {
-                    return null;
-                }
-            }
-        }
-
-        return null;
     }
 
     private boolean isBeanEnabledForResolution(Bean<?> bean) {
@@ -921,7 +819,7 @@ public class BeanResolver implements DependencyResolver {
 
                 Class<?> declaringClass = producerBean.getDeclaringClass();
                 if (declaringClass != null) {
-                    Integer declaringPriority = extractPriorityFromClass(declaringClass);
+                    Integer declaringPriority = getPriorityValue(declaringClass);
                     if (declaringPriority != null) {
                         return true;
                     }
@@ -966,7 +864,7 @@ public class BeanResolver implements DependencyResolver {
             return true;
         }
 
-        Integer classPriority = extractPriorityFromClass(beanClass);
+        Integer classPriority = getPriorityValue(beanClass);
         if (classPriority != null) {
             return true;
         }
@@ -1073,11 +971,6 @@ public class BeanResolver implements DependencyResolver {
         String pa = packageName(a);
         String pb = packageName(b);
         return pa.equals(pb);
-    }
-
-    private String packageName(Class<?> clazz) {
-        Package pkg = clazz.getPackage();
-        return pkg != null ? pkg.getName() : "";
     }
 
     /**
@@ -1476,7 +1369,7 @@ public class BeanResolver implements DependencyResolver {
                 return producerPriority;
             }
 
-            return extractPriorityFromClass(producerBean.getDeclaringClass());
+            return getPriorityValue(producerBean.getDeclaringClass());
         }
 
         if (bean instanceof BeanImpl) {
@@ -1486,7 +1379,7 @@ public class BeanResolver implements DependencyResolver {
             }
         }
 
-        return extractPriorityFromClass(bean.getBeanClass());
+        return getPriorityValue(bean.getBeanClass());
     }
 
     /**

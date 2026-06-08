@@ -63,7 +63,6 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
-import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -72,7 +71,6 @@ import static com.threeamigos.common.util.implementations.injection.annotations.
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasObservesAnnotation;
 import static com.threeamigos.common.util.implementations.injection.spi.SPIUtils.extractPrioritizedInterfacePriority;
 import static com.threeamigos.common.util.implementations.injection.util.BeansHelper.*;
-import static com.threeamigos.common.util.implementations.injection.util.ClassHelper.getClassDepth;
 import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.*;
 
 /**
@@ -2057,22 +2055,6 @@ public class Syringe {
         }
     }
 
-    private Set<Class<?>> collectSpecializedSuperclasses(Class<?> beanClass) {
-        Set<Class<?>> out = new HashSet<>();
-        if (!hasSpecializesAnnotation(beanClass)) {
-            return out;
-        }
-        Class<?> current = beanClass.getSuperclass();
-        while (current != null && !Object.class.equals(current)) {
-            out.add(current);
-            if (!hasSpecializesAnnotation(current)) {
-                break;
-            }
-            current = current.getSuperclass();
-        }
-        return out;
-    }
-
     private void validateBeanAttributesFromProcessBeanAttributes(Bean<?> bean, BeanAttributes<?> attrs) {
         if (attrs == null) {
             knowledgeBase.addDefinitionError(Phase.PROCESS_BEAN_ATTRIBUTES,
@@ -2234,9 +2216,8 @@ public class Syringe {
             b.setAlternative(memberAlternative);
             b.setAlternativeEnabled(!producerAlternativeDeclared ||
                     isProducerAlternativeEnabledAfterBeanAttributes(b, attrs.getStereotypes()));
-        } else {
-            // Synthetic or built-in beans: no-op
         }
+        // For Synthetic or built-in beans: no-op
     }
 
     private boolean isProducerAlternativeEnabledAfterBeanAttributes(ProducerBean<?> producerBean,
@@ -3026,8 +3007,8 @@ public class Syringe {
     /**
      * Returns the CDI instance for the container.
      *
-     * <p>This enables static container access via {@code CDI.current()} when a CDI provider
-     * is registered by SE support.
+     * <p>This enables static container access via {@code CDI.current()} when SE support
+     *  registers a CDI provider.
      *
      * @return the CDI instance
      */
@@ -3229,7 +3210,7 @@ public class Syringe {
                 return fallback;
             }
         }
-        return Collections.<T>emptyList().iterator();
+        return Collections.emptyIterator();
     }
 
 }

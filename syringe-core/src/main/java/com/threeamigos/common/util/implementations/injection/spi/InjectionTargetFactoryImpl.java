@@ -29,6 +29,8 @@ import java.util.WeakHashMap;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
 import static com.threeamigos.common.util.implementations.injection.util.ClassHelper.collectClassHierarchy;
+import static com.threeamigos.common.util.implementations.injection.util.ClassHelper.packageName;
+import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.defaultPrimitiveValue;
 
 /**
  * Factory for creating InjectionTarget instances.
@@ -546,18 +548,6 @@ public class InjectionTargetFactoryImpl<T> implements InjectionTargetFactory<T> 
             return new ResolvedInjectionPoint(new InjectionPointImpl<>(parameter, bean), resolvedType);
         }
 
-        private Object defaultPrimitiveValue(Class<?> primitiveType) {
-            if (primitiveType == boolean.class) return false;
-            if (primitiveType == byte.class) return (byte) 0;
-            if (primitiveType == short.class) return (short) 0;
-            if (primitiveType == int.class) return 0;
-            if (primitiveType == long.class) return 0L;
-            if (primitiveType == float.class) return 0f;
-            if (primitiveType == double.class) return 0d;
-            if (primitiveType == char.class) return '\u0000';
-            return null;
-        }
-
         private List<Method> collectLifecycleMethods(Class<?> beanClass, boolean postConstruct) {
             List<Class<?>> hierarchy = collectClassHierarchy(beanClass);
             List<Method> lifecycleMethods = new ArrayList<>();
@@ -622,11 +612,6 @@ public class InjectionTargetFactoryImpl<T> implements InjectionTargetFactory<T> 
                 return false;
             }
             return packageName(method.getDeclaringClass()).equals(packageName(subclass));
-        }
-
-        private String packageName(Class<?> type) {
-            Package pkg = type.getPackage();
-            return pkg == null ? "" : pkg.getName();
         }
 
         private boolean isOverridden(Method superMethod, Class<?> leafClass) {

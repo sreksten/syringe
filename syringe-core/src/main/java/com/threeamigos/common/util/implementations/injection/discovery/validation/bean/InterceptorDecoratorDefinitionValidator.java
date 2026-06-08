@@ -15,10 +15,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
-import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.lang.reflect.TypeVariable;
-import java.lang.reflect.WildcardType;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -30,6 +27,7 @@ import java.util.Objects;
 import java.util.Set;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasInterceptorBindingAnnotation;
+import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.decoratorDelegateTypeCoversDecoratedType;
 import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.extractTypesFromClass;
 import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.safeGetRawType;
 
@@ -620,173 +618,13 @@ public class InterceptorDecoratorDefinitionValidator {
         }
 
         for (Type decoratedType : decoratedTypes) {
-            if (!delegateTypeCoversDecoratedType(delegateType, decoratedType)) {
+            if (!decoratorDelegateTypeCoversDecoratedType(delegateType, decoratedType)) {
                 knowledgeBase.addDefinitionError(decoratorClass.getName() +
                         ": delegate type " + delegateType.getTypeName() +
                         " does not implement/extend decorated type " + decoratedType.getTypeName() +
                         " with matching type parameters");
             }
         }
-    }
-
-    private boolean delegateTypeCoversDecoratedType(Type delegateType, Type decoratedType) {
-        Class<?> delegateRaw = safeGetRawType(delegateType);
-        Class<?> decoratedRaw = safeGetRawType(decoratedType);
-        if (delegateRaw == null || decoratedRaw == null || !decoratedRaw.isAssignableFrom(delegateRaw)) {
-            return false;
-        }
-
-        if (!(decoratedType instanceof ParameterizedType)) {
-            return true;
-        }
-
-        Type viewOnDecoratedRaw = findTypeInHierarchy(delegateType, decoratedRaw, new HashSet<>());
-        if (viewOnDecoratedRaw == null) {
-            return false;
-        }
-
-        return isBeanTypeAssignableToDelegateType(decoratedType, viewOnDecoratedRaw);
-    }
-
-    private boolean isBeanTypeAssignableToDelegateType(Type beanType, Type delegateType) {
-        if (beanType == null || delegateType == null) {
-            return false;
-        }
-
-        Class<?> beanRaw = safeGetRawType(beanType);
-        Class<?> delegateRaw = safeGetRawType(delegateType);
-        if (delegateRaw == null || !delegateRaw.equals(beanRaw)) {
-            return false;
-        }
-
-        if (beanType instanceof Class && delegateType instanceof ParameterizedType) {
-            for (Type delegateArg : ((ParameterizedType) delegateType).getActualTypeArguments()) {
-                if (!isObjectOrUnboundedTypeVariable(delegateArg)) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        if (beanType instanceof ParameterizedType && delegateType instanceof ParameterizedType) {
-            Type[] beanArgs = ((ParameterizedType) beanType).getActualTypeArguments();
-            Type[] delegateArgs = ((ParameterizedType) delegateType).getActualTypeArguments();
-            if (beanArgs.length != delegateArgs.length) {
-                return false;
-            }
-            for (int i = 0; i < beanArgs.length; i++) {
-                if (!matchesDelegateParameter(beanArgs[i], delegateArgs[i])) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        if (beanType instanceof Class && delegateType instanceof Class) {
-            return true;
-        }
-
-        return beanType.equals(delegateType);
-    }
-
-    private boolean matchesDelegateParameter(Type beanParam, Type delegateParam) {
-        if (isActualType(beanParam) && isActualType(delegateParam)) {
-            Class<?> beanRaw = safeGetRawType(beanParam);
-            Class<?> delegateRaw = safeGetRawType(delegateParam);
-            if (beanRaw == null || !beanRaw.equals(delegateRaw)) {
-                return false;
-            }
-            if (beanParam instanceof ParameterizedType && delegateParam instanceof ParameterizedType) {
-                return isBeanTypeAssignableToDelegateType(beanParam, delegateParam);
-            }
-            return true;
-        }
-
-        if (delegateParam instanceof WildcardType && isActualType(beanParam)) {
-            return wildcardMatches((WildcardType) delegateParam, beanParam);
-        }
-
-        if (delegateParam instanceof WildcardType && beanParam instanceof TypeVariable<?>) {
-            Type beanUpperBound = firstUpperBound((TypeVariable<?>) beanParam);
-            return wildcardMatches((WildcardType) delegateParam, beanUpperBound);
-        }
-
-        if (delegateParam instanceof TypeVariable<?> && beanParam instanceof TypeVariable<?>) {
-            Type delegateUpper = firstUpperBound((TypeVariable<?>) delegateParam);
-            Type beanUpper = firstUpperBound((TypeVariable<?>) beanParam);
-            return isAssignable(beanUpper, delegateUpper);
-        }
-
-        if (delegateParam instanceof TypeVariable<?> && isActualType(beanParam)) {
-            Type delegateUpper = firstUpperBound((TypeVariable<?>) delegateParam);
-            return isAssignable(beanParam, delegateUpper);
-        }
-
-        return false;
-    }
-
-    private boolean wildcardMatches(WildcardType wildcard, Type candidate) {
-        for (Type upper : wildcard.getUpperBounds()) {
-            if (!Object.class.equals(upper) && !isAssignable(candidate, upper)) {
-                return false;
-            }
-        }
-        for (Type lower : wildcard.getLowerBounds()) {
-            if (!isAssignable(lower, candidate)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private boolean isAssignable(Type from, Type to) {
-        Class<?> fromRaw = safeGetRawType(from);
-        Class<?> toRaw = safeGetRawType(to);
-        return fromRaw != null && toRaw != null && toRaw.isAssignableFrom(fromRaw);
-    }
-
-    private Type firstUpperBound(TypeVariable<?> variable) {
-        Type[] bounds = variable.getBounds();
-        return bounds.length == 0 ? Object.class : bounds[0];
-    }
-
-    private boolean isActualType(Type type) {
-        return type instanceof Class<?> || type instanceof ParameterizedType;
-    }
-
-    private boolean isObjectOrUnboundedTypeVariable(Type type) {
-        if (Object.class.equals(type)) {
-            return true;
-        }
-        if (type instanceof TypeVariable<?>) {
-            TypeVariable<?> tv = (TypeVariable<?>) type;
-            Type[] bounds = tv.getBounds();
-            return bounds.length == 0 || (bounds.length == 1 && Object.class.equals(bounds[0]));
-        }
-        return false;
-    }
-
-    private Type findTypeInHierarchy(Type source, Class<?> targetRaw, Set<Type> visited) {
-        if (source == null || !visited.add(source)) {
-            return null;
-        }
-
-        Class<?> raw = safeGetRawType(source);
-        if (raw == null) {
-            return null;
-        }
-        if (raw.equals(targetRaw)) {
-            return source;
-        }
-
-        for (Type type : raw.getGenericInterfaces()) {
-            Type found = findTypeInHierarchy(type, targetRaw, visited);
-            if (found != null) {
-                return found;
-            }
-        }
-
-        return findTypeInHierarchy(raw.getGenericSuperclass(), targetRaw, visited);
     }
 
     private String methodSignature(Method method) {

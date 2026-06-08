@@ -6,8 +6,13 @@ import jakarta.enterprise.inject.spi.Bean;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.getPriorityValue;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasSpecializesAnnotation;
 import static com.threeamigos.common.util.implementations.injection.util.ClassHelper.getClassDepth;
 
 /**
@@ -91,6 +96,96 @@ public class BeansHelper {
 
     public static boolean isProcessBeanAttributesCandidate(Bean<?> bean) {
         return bean instanceof BeanImpl<?> || bean instanceof ProducerBean<?>;
+    }
+
+    /**
+     * Returns {@code @Priority} declared directly on a producer method/field, if present.
+     */
+    public static Integer extractPriorityFromProducerMember(ProducerBean<?> producerBean) {
+        if (producerBean == null) {
+            return null;
+        }
+        if (producerBean.getProducerMethod() != null) {
+            return getPriorityValue(producerBean.getProducerMethod().getAnnotations());
+        }
+        if (producerBean.getProducerField() != null) {
+            return getPriorityValue(producerBean.getProducerField().getAnnotations());
+        }
+        return null;
+    }
+
+    public static Set<Class<?>> collectSpecializedSuperclasses(Class<?> beanClass) {
+        Set<Class<?>> out = new HashSet<>();
+        if (!hasSpecializesAnnotation(beanClass)) {
+            return out;
+        }
+        Class<?> current = beanClass.getSuperclass();
+        while (current != null && !Object.class.equals(current)) {
+            out.add(current);
+            if (!hasSpecializesAnnotation(current)) {
+                break;
+            }
+            current = current.getSuperclass();
+        }
+        return out;
+    }
+
+    /**
+     * Collects all superclasses suppressed by specialization for the given bean candidates.
+     */
+    public static Set<Class<?>> collectSpecializedSuperclasses(Collection<? extends Bean<?>> candidates) {
+        Set<Class<?>> out = new HashSet<>();
+        if (candidates == null || candidates.isEmpty()) {
+            return out;
+        }
+        for (Bean<?> candidate : candidates) {
+            out.addAll(collectSpecializedSuperclasses(candidate != null ? candidate.getBeanClass() : null));
+        }
+        return out;
+    }
+
+    /**
+     * Removes beans that are specialized away by another candidate in the same set.
+     */
+    public static <B extends Bean<?>> Set<B> filterSpecializedBeans(Set<B> candidates) {
+        if (candidates == null || candidates.size() < 2) {
+            return candidates;
+        }
+
+        Set<Class<?>> specializedSuperclasses = collectSpecializedSuperclasses(candidates);
+        if (specializedSuperclasses.isEmpty()) {
+            return candidates;
+        }
+
+        Set<B> filtered = new LinkedHashSet<>();
+        for (B candidate : candidates) {
+            if (!specializedSuperclasses.contains(candidate.getBeanClass())) {
+                filtered.add(candidate);
+            }
+        }
+        return filtered;
+    }
+
+    /**
+     * Removes beans that are specialized away by another candidate in the same collection.
+     */
+    public static <B extends Bean<?>> Collection<B> filterSpecializedBeans(Collection<B> candidates) {
+        if (candidates == null || candidates.size() < 2) {
+            return candidates;
+        }
+
+        Set<Class<?>> specializedSuperclasses = collectSpecializedSuperclasses(candidates);
+        if (specializedSuperclasses.isEmpty()) {
+            return candidates;
+        }
+
+        List<B> filtered = new ArrayList<>();
+        for (B candidate : candidates) {
+            if (!specializedSuperclasses.contains(candidate.getBeanClass())) {
+                filtered.add(candidate);
+            }
+        }
+        return filtered;
     }
 
 }

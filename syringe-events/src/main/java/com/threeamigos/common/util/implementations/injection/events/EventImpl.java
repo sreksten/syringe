@@ -64,6 +64,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.*;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
+import static com.threeamigos.common.util.implementations.injection.util.BeansHelper.collectSpecializedSuperclasses;
 import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.*;
 
 /**
@@ -1156,30 +1157,11 @@ public class EventImpl<T> implements Event<T>, Serializable {
                 continue;
             }
             Class<?> candidateClass = candidate.getBeanClass();
-            if (!hasSpecializesAnnotation(candidateClass)) {
-                continue;
-            }
             if (collectSpecializedSuperclasses(candidateClass).contains(beanClass)) {
                 return true;
             }
         }
         return false;
-    }
-
-    private Set<Class<?>> collectSpecializedSuperclasses(Class<?> beanClass) {
-        Set<Class<?>> out = new HashSet<>();
-        if (!hasSpecializesAnnotation(beanClass)) {
-            return out;
-        }
-        Class<?> current = beanClass.getSuperclass();
-        while (current != null && !Object.class.equals(current)) {
-            out.add(current);
-            if (!hasSpecializesAnnotation(current)) {
-                break;
-            }
-            current = current.getSuperclass();
-        }
-        return out;
     }
 
     private String observerDedupKey(ObserverMethodInfo observerInfo) {

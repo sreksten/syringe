@@ -384,6 +384,66 @@ public class TypesHelper {
         return type;
     }
 
+    public static Class<?> boxPrimitiveType(Class<?> type) {
+        if (type == null || !type.isPrimitive()) {
+            return null;
+        }
+        return normalizePrimitiveType(type);
+    }
+
+    public static Class<?> unboxWrapperType(Class<?> type) {
+        if (type == Integer.class) return int.class;
+        if (type == Long.class) return long.class;
+        if (type == Double.class) return double.class;
+        if (type == Float.class) return float.class;
+        if (type == Boolean.class) return boolean.class;
+        if (type == Character.class) return char.class;
+        if (type == Byte.class) return byte.class;
+        if (type == Short.class) return short.class;
+        if (type == Void.class) return void.class;
+        return null;
+    }
+
+    public static Object defaultPrimitiveValue(Class<?> primitiveType) {
+        if (primitiveType == boolean.class) return false;
+        if (primitiveType == byte.class) return (byte) 0;
+        if (primitiveType == short.class) return (short) 0;
+        if (primitiveType == int.class) return 0;
+        if (primitiveType == long.class) return 0L;
+        if (primitiveType == float.class) return 0f;
+        if (primitiveType == double.class) return 0d;
+        if (primitiveType == char.class) return '\u0000';
+        return null;
+    }
+
+    /**
+     * Returns {@code true} when two types have different effective raw classes.
+     * Primitive/wrapper pairs are treated as the same raw type.
+     */
+    public static boolean notSameRawType(Type requiredType, Type beanType) {
+        if (requiredType == null || beanType == null) {
+            return true;
+        }
+        if (requiredType instanceof TypeVariable ||
+                requiredType instanceof WildcardType) {
+            return false;
+        }
+
+        Class<?> requiredRaw;
+        Class<?> beanRaw;
+        try {
+            requiredRaw = normalizePrimitiveType(getRawType(requiredType));
+            beanRaw = normalizePrimitiveType(getRawType(beanType));
+        } catch (RuntimeException e) {
+            return false;
+        }
+
+        if (requiredRaw == null || beanRaw == null) {
+            return false;
+        }
+        return !requiredRaw.equals(beanRaw);
+    }
+
     /**
      * Finds the exact supertype of {@code type} that has raw type {@code targetRaw}.
      *
@@ -1046,7 +1106,11 @@ public class TypesHelper {
             return true;
         }
         if (type instanceof ParameterizedType) {
-            return containsTypeVariable(((ParameterizedType) type).getActualTypeArguments());
+            ParameterizedType parameterizedType = (ParameterizedType) type;
+            if (containsTypeVariable(parameterizedType.getActualTypeArguments())) {
+                return true;
+            }
+            return containsTypeVariable(parameterizedType.getOwnerType());
         }
         if (type instanceof GenericArrayType) {
             return containsTypeVariable(((GenericArrayType) type).getGenericComponentType());

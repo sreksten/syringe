@@ -154,7 +154,7 @@ public class InjectionPointImpl<T> implements InjectionPoint, Serializable {
             return qualifier;
         }
 
-        String namedValue = readNamedValue(qualifier).trim();
+        String namedValue = getNamedValue(qualifier).trim();
         if (!namedValue.isEmpty()) {
             return qualifier;
         }
@@ -169,16 +169,6 @@ public class InjectionPointImpl<T> implements InjectionPoint, Serializable {
 
     private boolean isNamedQualifierType(Class<? extends Annotation> annotationType) {
         return hasNamedAnnotation(annotationType);
-    }
-
-    private String readNamedValue(Annotation namedQualifier) {
-        try {
-            Method valueMethod = namedQualifier.annotationType().getMethod("value");
-            Object value = valueMethod.invoke(namedQualifier);
-            return value == null ? "" : value.toString();
-        } catch (ReflectiveOperationException ignored) {
-            return "";
-        }
     }
 
     private Annotation createNamedLiteral(Class<? extends Annotation> namedType, String value) {

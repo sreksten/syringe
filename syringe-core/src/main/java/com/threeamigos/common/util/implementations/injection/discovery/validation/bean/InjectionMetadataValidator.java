@@ -1,7 +1,6 @@
 package com.threeamigos.common.util.implementations.injection.discovery.validation.bean;
 
 import com.threeamigos.common.util.implementations.injection.discovery.validation.CDI41BeanValidator;
-import com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum;
 import com.threeamigos.common.util.implementations.injection.discovery.NonPortableBehaviourException;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.KnowledgeBase;
 import jakarta.enterprise.inject.spi.Bean;
@@ -29,7 +28,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasNamedAnnotation;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.findNamedQualifier;
+import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.getNamedValue;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.DECORATED;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.INTERCEPTED;
 import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.extractRawClass;
@@ -328,7 +328,7 @@ public class InjectionMetadataValidator {
             return false;
         }
 
-        String namedValue = readNamedValue(named).trim();
+        String namedValue = getNamedValue(named).trim();
         if (!namedValue.isEmpty()) {
             return false;
         }
@@ -619,15 +619,6 @@ public class InjectionMetadataValidator {
         return !left.getTypeName().equals(right.getTypeName());
     }
 
-    private Annotation findNamedQualifier(Annotation[] annotations) {
-        for (Annotation annotation : annotations) {
-            if (hasNamedAnnotation(annotation.annotationType())) {
-                return annotation;
-            }
-        }
-        return null;
-    }
-
     private String describeInjectionPoint(AnnotatedElement injectionPoint) {
         if (injectionPoint instanceof Parameter) {
             return validator.fmtParameter((Parameter) injectionPoint);
@@ -644,13 +635,4 @@ public class InjectionMetadataValidator {
         return injectionPoint.toString();
     }
 
-    private String readNamedValue(Annotation namedAnnotation) {
-        try {
-            Method value = namedAnnotation.annotationType().getMethod("value");
-            Object raw = value.invoke(namedAnnotation);
-            return raw == null ? "" : raw.toString();
-        } catch (ReflectiveOperationException ignored) {
-            return "";
-        }
-    }
 }

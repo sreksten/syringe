@@ -1,7 +1,6 @@
 package com.threeamigos.common.util.implementations.injection.interceptors;
 
 import com.threeamigos.common.util.implementations.injection.beansxml.BeansXml;
-import com.threeamigos.common.util.implementations.injection.interceptors.InterceptionFactoryImpl;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.InterceptorInfo;
 import com.threeamigos.common.util.implementations.injection.knowledgebase.KnowledgeBase;
 import com.threeamigos.common.util.interfaces.messagehandler.MessageHandler;

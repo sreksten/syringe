@@ -9,6 +9,8 @@ import com.threeamigos.common.util.implementations.injection.knowledgebase.Scope
 import com.threeamigos.common.util.implementations.injection.scopes.InjectionPointImpl;
 import com.threeamigos.common.util.implementations.injection.resolution.BeanImpl;
 import com.threeamigos.common.util.implementations.injection.resolution.ProducerBean;
+import com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper;
+import com.threeamigos.common.util.implementations.injection.util.ClassHelper;
 import com.threeamigos.common.util.implementations.injection.util.TypesHelper;
 import jakarta.enterprise.inject.spi.Bean;
 import jakarta.enterprise.inject.spi.Annotated;
@@ -26,6 +28,7 @@ import java.util.stream.Collectors;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.*;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
+import static com.threeamigos.common.util.implementations.injection.util.ClassHelper.packageName;
 import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.*;
 
 /**
@@ -728,23 +731,10 @@ public class CDI41BeanValidator {
 
         for (Annotation annotation : annotations) {
             if (PRIORITY.matches(annotation.annotationType())) {
-                return readPriorityValue(annotation);
+                return AnnotationsHelper.getPriorityValue(annotation);
             }
         }
 
-        return null;
-    }
-
-    private Integer readPriorityValue(Annotation priorityAnnotation) {
-        try {
-            Method valueMethod = priorityAnnotation.annotationType().getMethod("value");
-            Object value = valueMethod.invoke(priorityAnnotation);
-            if (value instanceof Integer) {
-                return (Integer) value;
-            }
-        } catch (ReflectiveOperationException ignored) {
-            // Ignore malformed annotation implementations and treat as absent.
-        }
         return null;
     }
 
@@ -2371,11 +2361,6 @@ public class CDI41BeanValidator {
         return packageName(method.getDeclaringClass()).equals(packageName(subclass));
     }
 
-    private String packageName(Class<?> clazz) {
-        Package pkg = clazz.getPackage();
-        return pkg == null ? "" : pkg.getName();
-    }
-
     /**
      * Finds all passivation lifecycle methods (@PrePassivate or @PostActivate) in the class hierarchy.
      * <p>
@@ -2518,13 +2503,7 @@ public class CDI41BeanValidator {
     }
 
     public List<Class<?>> collectClassHierarchy(Class<?> leafClass) {
-        List<Class<?>> hierarchy = new ArrayList<>();
-        Class<?> current = leafClass;
-        while (current != null && current != Object.class) {
-            hierarchy.add(0, current);
-            current = current.getSuperclass();
-        }
-        return hierarchy;
+        return ClassHelper.collectClassHierarchy(leafClass);
     }
 
     public boolean isOverriddenForInjectionMetadata(Method superMethod, Class<?> leafClass) {

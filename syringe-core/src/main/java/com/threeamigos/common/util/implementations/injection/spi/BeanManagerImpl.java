@@ -66,6 +66,9 @@ import java.util.stream.Collectors;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.*;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
+import static com.threeamigos.common.util.implementations.injection.util.BeansHelper.filterSpecializedBeans;
+import static com.threeamigos.common.util.implementations.injection.util.ClassHelper.decapitalize;
+import static com.threeamigos.common.util.implementations.injection.util.ClassHelper.packageName;
 import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.*;
 
 /**
@@ -463,73 +466,10 @@ public class BeanManagerImpl implements BeanManager, Serializable {
         }
 
         Class<?> requestedClass = (Class<?>) requestedType;
-        Class<?> alternate = requestedClass.isPrimitive() ? boxPrimitive(requestedClass) : unboxWrapper(requestedClass);
+        Class<?> alternate = requestedClass.isPrimitive()
+                ? boxPrimitiveType(requestedClass)
+                : unboxWrapperType(requestedClass);
         return alternate != null && beanTypes.contains(alternate);
-    }
-
-    private boolean notSameRawType(Type requiredType, Type beanType) {
-        if (requiredType == null || beanType == null) {
-            return true;
-        }
-        if (requiredType instanceof TypeVariable || requiredType instanceof WildcardType) {
-            return false;
-        }
-
-        Class<?> requiredRaw;
-        Class<?> beanRaw;
-        try {
-            requiredRaw = normalizePrimitiveType(getRawType(requiredType));
-            beanRaw = normalizePrimitiveType(getRawType(beanType));
-        } catch (RuntimeException e) {
-            return false;
-        }
-
-        if (requiredRaw == null || beanRaw == null) {
-            return false;
-        }
-        return !requiredRaw.equals(beanRaw);
-    }
-
-    private Class<?> normalizePrimitiveType(Class<?> type) {
-        if (type == null || !type.isPrimitive()) {
-            return type;
-        }
-        if (type == int.class) return Integer.class;
-        if (type == long.class) return Long.class;
-        if (type == double.class) return Double.class;
-        if (type == float.class) return Float.class;
-        if (type == boolean.class) return Boolean.class;
-        if (type == char.class) return Character.class;
-        if (type == byte.class) return Byte.class;
-        if (type == short.class) return Short.class;
-        if (type == void.class) return Void.class;
-        return type;
-    }
-
-    private Class<?> boxPrimitive(Class<?> type) {
-        if (type == int.class) return Integer.class;
-        if (type == long.class) return Long.class;
-        if (type == double.class) return Double.class;
-        if (type == float.class) return Float.class;
-        if (type == boolean.class) return Boolean.class;
-        if (type == char.class) return Character.class;
-        if (type == byte.class) return Byte.class;
-        if (type == short.class) return Short.class;
-        if (type == void.class) return Void.class;
-        return null;
-    }
-
-    private Class<?> unboxWrapper(Class<?> type) {
-        if (type == Integer.class) return int.class;
-        if (type == Long.class) return long.class;
-        if (type == Double.class) return double.class;
-        if (type == Float.class) return float.class;
-        if (type == Boolean.class) return boolean.class;
-        if (type == Character.class) return char.class;
-        if (type == Byte.class) return byte.class;
-        if (type == Short.class) return short.class;
-        if (type == Void.class) return void.class;
-        return null;
     }
 
     /**
@@ -682,7 +622,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
             }
         }
 
-        return applySpecializationFiltering(matchingBeans);
+        return filterSpecializedBeans(matchingBeans);
     }
 
     private Set<Bean<?>> resolveBuiltInLookupBeans(Type beanType, Annotation[] qualifiers) {
@@ -803,7 +743,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
             matchingBeans.add(legacyNewSupport.adaptLegacyNewBean((Bean) bean));
         }
 
-        return applySpecializationFiltering(matchingBeans);
+        return filterSpecializedBeans(matchingBeans);
     }
 
     private void validateRequiredQualifiers(Annotation[] qualifiers) {
@@ -869,7 +809,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
             }
         }
 
-        return applySpecializationFiltering(namedBeans);
+        return filterSpecializedBeans(namedBeans);
     }
 
     /**
@@ -932,7 +872,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
             return null;
         }
 
-        Set<Bean<? extends X>> filteredBeans = applySpecializationFiltering(beans);
+        Set<Bean<? extends X>> filteredBeans = filterSpecializedBeans(beans);
         if (filteredBeans.isEmpty()) {
             return null;
         }
@@ -999,52 +939,6 @@ public class BeanManagerImpl implements BeanManager, Serializable {
         // Multiple non-alternatives = ambiguous
         throw new jakarta.enterprise.inject.AmbiguousResolutionException(
             "Ambiguous dependency: multiple beans match and no alternative can resolve ambiguity");
-    }
-
-    /**
-     * Basic specialization filtering: if a candidate bean specializes its direct superclass,
-     * the specialized superclass bean is removed from candidate sets.
-     */
-    private <X> Set<Bean<? extends X>> applySpecializationFiltering(Set<Bean<? extends X>> candidates) {
-        if (candidates == null || candidates.size() < 2) {
-            return candidates;
-        }
-
-        Set<Class<?>> specializedSuperclasses = new HashSet<>();
-        for (Bean<? extends X> candidate : candidates) {
-            Class<?> beanClass = candidate.getBeanClass();
-            if (hasSpecializesAnnotation(beanClass)) {
-                specializedSuperclasses.addAll(collectSpecializedSuperclasses(beanClass));
-            }
-        }
-
-        if (specializedSuperclasses.isEmpty()) {
-            return candidates;
-        }
-
-        Set<Bean<? extends X>> filtered = new HashSet<>();
-        for (Bean<? extends X> candidate : candidates) {
-            if (!specializedSuperclasses.contains(candidate.getBeanClass())) {
-                filtered.add(candidate);
-            }
-        }
-        return filtered;
-    }
-
-    private Set<Class<?>> collectSpecializedSuperclasses(Class<?> beanClass) {
-        Set<Class<?>> out = new HashSet<>();
-        if (!hasSpecializesAnnotation(beanClass)) {
-            return out;
-        }
-        Class<?> current = beanClass.getSuperclass();
-        while (current != null && !Object.class.equals(current)) {
-            out.add(current);
-            if (!hasSpecializesAnnotation(current)) {
-                break;
-            }
-            current = current.getSuperclass();
-        }
-        return out;
     }
 
     private boolean isBeanEnabledForResolution(Bean<?> bean) {
@@ -1297,11 +1191,6 @@ public class BeanManagerImpl implements BeanManager, Serializable {
 
     private boolean inSamePackage(Class<?> a, Class<?> b) {
         return packageName(a).equals(packageName(b));
-    }
-
-    private String packageName(Class<?> type) {
-        Package pkg = type.getPackage();
-        return pkg != null ? pkg.getName() : "";
     }
 
     /**
@@ -3254,16 +3143,6 @@ public class BeanManagerImpl implements BeanManager, Serializable {
         }
     }
 
-    private String getNamedValue(Annotation qualifier) {
-        try {
-            Method valueMethod = qualifier.annotationType().getMethod("value");
-            Object value = valueMethod.invoke(qualifier);
-            return value == null ? "" : value.toString();
-        } catch (ReflectiveOperationException ignored) {
-            return "";
-        }
-    }
-
     private <T> boolean isDecoratorSyntheticBean(BeanAttributes<T> attributes, Class<T> beanClass) {
         if (hasDecoratorAnnotation(beanClass)) {
             return true;
@@ -3473,38 +3352,6 @@ public class BeanManagerImpl implements BeanManager, Serializable {
             return Collections.singleton(Any.Literal.INSTANCE);
         }
         return observedQualifiers;
-    }
-
-    private boolean containsTypeVariable(Type type) {
-        if (type instanceof TypeVariable) {
-            return true;
-        }
-        if (type instanceof ParameterizedType) {
-            for (Type arg : ((ParameterizedType) type).getActualTypeArguments()) {
-                if (containsTypeVariable(arg)) {
-                    return true;
-                }
-            }
-            Type ownerType = ((ParameterizedType) type).getOwnerType();
-            return containsTypeVariable(ownerType);
-        }
-        if (type instanceof GenericArrayType) {
-            return containsTypeVariable(((GenericArrayType) type).getGenericComponentType());
-        }
-        if (type instanceof WildcardType) {
-            WildcardType wildcardType = (WildcardType) type;
-            for (Type upperBound : wildcardType.getUpperBounds()) {
-                if (containsTypeVariable(upperBound)) {
-                    return true;
-                }
-            }
-            for (Type lowerBound : wildcardType.getLowerBounds()) {
-                if (containsTypeVariable(lowerBound)) {
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 
     /**
@@ -4786,7 +4633,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
     private String extractNameFromType(AnnotatedType<?> type) {
         Annotation named = findNamedAnnotation(type.getAnnotations());
         if (named != null) {
-            return defaultedTypeName(readNamedValue(named), type.getJavaClass());
+            return defaultedTypeName(getNamedValue(named), type.getJavaClass());
         }
 
         Set<Class<? extends Annotation>> visited = new HashSet<>();
@@ -4805,7 +4652,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
             return null;
         }
 
-        String value = readNamedValue(named);
+        String value = getNamedValue(named);
         if (value != null && !value.trim().isEmpty()) {
             return value.trim();
         }
@@ -4835,13 +4682,13 @@ public class BeanManagerImpl implements BeanManager, Serializable {
         if (registeredDefinition != null && !registeredDefinition.isEmpty()) {
             Annotation named = findNamedAnnotation(registeredDefinition);
             if (named != null) {
-                return defaultedTypeName(readNamedValue(named), beanClass);
+                return defaultedTypeName(getNamedValue(named), beanClass);
             }
         }
 
         Annotation named = findNamedAnnotation(Arrays.asList(stereotype.getAnnotations()));
         if (named != null) {
-            return defaultedTypeName(readNamedValue(named), beanClass);
+            return defaultedTypeName(getNamedValue(named), beanClass);
         }
 
         for (Annotation meta : stereotype.getAnnotations()) {
@@ -5212,19 +5059,6 @@ public class BeanManagerImpl implements BeanManager, Serializable {
         return null;
     }
 
-    private String readNamedValue(Annotation namedAnnotation) {
-        if (namedAnnotation == null) {
-            return "";
-        }
-        try {
-            Method valueMethod = namedAnnotation.annotationType().getMethod("value");
-            Object rawValue = valueMethod.invoke(namedAnnotation);
-            return rawValue == null ? "" : rawValue.toString();
-        } catch (ReflectiveOperationException ignored) {
-            return "";
-        }
-    }
-
     private void validateDeclaredBeanAttributes(Annotated annotated) {
         int scopeCount = 0;
         Class<? extends Annotation> firstScope = null;
@@ -5259,14 +5093,6 @@ public class BeanManagerImpl implements BeanManager, Serializable {
             return member.getDeclaringClass().getName() + "#" + member.getName();
         }
         return annotated.toString();
-    }
-
-    /**
-     * Decapitalizes a string following CDI conventions.
-     */
-    private String decapitalize(String s) {
-        if (s == null || s.isEmpty()) return s;
-        return Character.toLowerCase(s.charAt(0)) + s.substring(1);
     }
 
     /**

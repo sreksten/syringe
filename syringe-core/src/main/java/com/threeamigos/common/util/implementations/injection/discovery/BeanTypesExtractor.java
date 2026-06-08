@@ -100,42 +100,6 @@ public final class BeanTypesExtractor {
         return true;
     }
 
-    private boolean containsTypeVariable(Type type) {
-        if (type instanceof TypeVariable) {
-            return true;
-        }
-        if (type instanceof GenericArrayType) {
-            return containsTypeVariable(((GenericArrayType) type).getGenericComponentType());
-        }
-        if (type instanceof Class && ((Class<?>) type).isArray()) {
-            return containsTypeVariable(((Class<?>) type).getComponentType());
-        }
-        if (type instanceof ParameterizedType) {
-            ParameterizedType parameterizedType = (ParameterizedType) type;
-            for (Type argument : parameterizedType.getActualTypeArguments()) {
-                if (containsTypeVariable(argument)) {
-                    return true;
-                }
-            }
-            Type owner = parameterizedType.getOwnerType();
-            return containsTypeVariable(owner);
-        }
-        if (type instanceof WildcardType) {
-            WildcardType wildcardType = (WildcardType) type;
-            for (Type bound : wildcardType.getUpperBounds()) {
-                if (containsTypeVariable(bound)) {
-                    return true;
-                }
-            }
-            for (Type bound : wildcardType.getLowerBounds()) {
-                if (containsTypeVariable(bound)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
     private boolean containsWildcard(Type type) {
         if (type instanceof WildcardType) {
             return true;

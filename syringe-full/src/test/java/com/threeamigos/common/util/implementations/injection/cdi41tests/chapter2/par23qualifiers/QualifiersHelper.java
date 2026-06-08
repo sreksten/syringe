@@ -1,5 +1,7 @@
 package com.threeamigos.common.util.implementations.injection.cdi41tests.chapter2.par23qualifiers;
 
+import com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper;
+
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.List;
@@ -17,7 +19,7 @@ public final class QualifiersHelper {
      * Delegates bean qualifier normalization to production helper logic.
      */
     public static Set<Annotation> extractBeanQualifiers(Annotation[] annotations) {
-        return com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.extractBeanQualifiers(annotations);
+        return AnnotationsHelper.extractBeanQualifiers(annotations);
     }
 
     /**

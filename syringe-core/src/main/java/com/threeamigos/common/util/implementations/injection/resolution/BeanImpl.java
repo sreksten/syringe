@@ -29,6 +29,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasAroundInvokeAnnotation;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasExcludeClassInterceptorsAnnotation;
 import static com.threeamigos.common.util.implementations.injection.util.ClassHelper.collectClassHierarchyFromObject;
+import static com.threeamigos.common.util.implementations.injection.util.ClassHelper.packageName;
+import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.defaultPrimitiveValue;
 
 /**
  * CDI 4.1 - 2 - A <i>bean</i> is a source of contextual objects that define application state and/or logic.
@@ -1022,18 +1024,6 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
         }
 
         return false;
-    }
-
-    private Object defaultPrimitiveValue(Class<?> primitiveType) {
-        if (primitiveType == boolean.class) return false;
-        if (primitiveType == byte.class) return (byte) 0;
-        if (primitiveType == short.class) return (short) 0;
-        if (primitiveType == int.class) return 0;
-        if (primitiveType == long.class) return 0L;
-        if (primitiveType == float.class) return 0f;
-        if (primitiveType == double.class) return 0d;
-        if (primitiveType == char.class) return '\u0000';
-        return null;
     }
 
     /**
@@ -2146,11 +2136,6 @@ public class BeanImpl<T> implements Bean<T>, PassivationCapable, Serializable {
         }
 
         return packageName(method.getDeclaringClass()).equals(packageName(subclass));
-    }
-
-    private String packageName(Class<?> clazz) {
-        Package pkg = clazz.getPackage();
-        return pkg == null ? "" : pkg.getName();
     }
 
     private Object getOrCreateInterceptorInstance(InterceptorInfo interceptorInfo, Object interceptionTarget) {
