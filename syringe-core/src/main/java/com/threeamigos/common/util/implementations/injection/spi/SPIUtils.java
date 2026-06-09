@@ -5,7 +5,6 @@ import jakarta.enterprise.inject.spi.Prioritized;
 import jakarta.enterprise.lang.model.declarations.ClassInfo;
 import jakarta.enterprise.lang.model.declarations.FieldInfo;
 import jakarta.enterprise.lang.model.declarations.MethodInfo;
-import jakarta.enterprise.lang.model.declarations.ParameterInfo;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
@@ -46,10 +45,6 @@ public class SPIUtils {
 
     public static boolean isInvokerFactory(Class<?> parameterType) {
         return InvokerFactory.class.isAssignableFrom(parameterType);
-    }
-
-    public static boolean isBuildServices(Class<?> parameterType) {
-        return BuildServices.class.isAssignableFrom(parameterType);
     }
 
     public static boolean isTypes(Class<?> parameterType) {
@@ -94,14 +89,6 @@ public class SPIUtils {
 
     public static boolean isFieldConfig(Class<?> parameterType) {
         return FieldConfig.class.isAssignableFrom(parameterType);
-    }
-
-    public static boolean isParameterInfo(Class<?> parameterType) {
-        return ParameterInfo.class.isAssignableFrom(parameterType);
-    }
-
-    public static boolean isParameterConfig(Class<?> parameterType) {
-        return ParameterConfig.class.isAssignableFrom(parameterType);
     }
 
     public static boolean isContainerLifecycleObservedType(Class<?> observedType) {

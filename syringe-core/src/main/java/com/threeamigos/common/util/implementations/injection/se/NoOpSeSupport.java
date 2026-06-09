@@ -7,7 +7,7 @@ import com.threeamigos.common.util.implementations.injection.Syringe;
  *
  * <p>SE container integration ({@code CDI.current()} registration) is an
  * infrastructure concern — its absence is fully silent and does not affect
- * programmatically-driven container usage.
+ * programmatically driven container usage.
  */
 public class NoOpSeSupport implements SeSupport {
 

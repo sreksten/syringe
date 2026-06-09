@@ -20,7 +20,7 @@ import java.util.Set;
 /**
  * Service provider interface for interceptor support.
  *
- * <p>Discovered via {@link java.util.ServiceLoader}. If syringe-interceptors is on the classpath,
+ * <p>Discovered via {@link java.util.ServiceLoader}. If syringe-interceptors.jar is on the classpath,
  * {@code InterceptorSupportImpl} is loaded; otherwise {@link NoOpInterceptorSupport} is used.
  */
 public interface InterceptorSupport {
@@ -68,7 +68,7 @@ public interface InterceptorSupport {
     void validateBeansXmlInterceptorConfiguration();
 
     /**
-     * Clears any per-instance caches held by this support object (e.g. proxy class cache).
+     * Clears any per-instance caches held by this support object (e.g., proxy class cache).
      */
     void clear();
 

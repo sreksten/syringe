@@ -320,8 +320,6 @@ public class InjectionTargetFactoryImpl<T> implements InjectionTargetFactory<T> 
                 Method getter = candidate.getClass().getMethod("$$_getTargetInstance");
                 Object target = getter.invoke(candidate);
                 return target != null ? target : candidate;
-            } catch (NoSuchMethodException ignored) {
-                return candidate;
             } catch (Exception ignored) {
                 return candidate;
             }
@@ -388,19 +386,18 @@ public class InjectionTargetFactoryImpl<T> implements InjectionTargetFactory<T> 
             }
 
             BeanImpl<T> beanImpl = (BeanImpl<T>) bean;
-            T rawTarget = instance;
             T wrapped = instance;
 
             if (beanImpl.hasDecorators()) {
                 wrapped = beanImpl.createDecoratorChain(wrapped, creationalContext);
-                trackWrappedTarget(wrapped, rawTarget);
+                trackWrappedTarget(wrapped, instance);
             }
 
             Class<? extends Annotation> scope = beanImpl.getScope();
             boolean dependent = scope == null || Dependent.class.equals(scope);
             if (beanImpl.hasInterceptors() && dependent) {
                 wrapped = beanImpl.createInterceptorAwareProxy(wrapped);
-                trackWrappedTarget(wrapped, rawTarget);
+                trackWrappedTarget(wrapped, instance);
             }
 
             return wrapped;
@@ -501,34 +498,23 @@ public class InjectionTargetFactoryImpl<T> implements InjectionTargetFactory<T> 
         }
 
         private Object[] resolveConstructorParameters(Constructor<T> constructor, CreationalContext<T> ctx) {
-            Parameter[] params = constructor.getParameters();
-            Object[] args = new Object[params.length];
-
-            for (int i = 0; i < params.length; i++) {
-                Type resolvedType = GenericTypeResolver.resolve(
-                        params[i].getParameterizedType(),
-                        annotatedType.getJavaClass(),
-                        constructor.getDeclaringClass()
-                );
-                InjectionPoint ip = createInjectionPoint(params[i], resolvedType);
-                args[i] = beanManager.getInjectableReference(ip, ctx);
-                if (args[i] == null && params[i].getType().isPrimitive()) {
-                    args[i] = defaultPrimitiveValue(params[i].getType());
-                }
-            }
-
-            return args;
+            return resolveExecutableParameters(constructor.getParameters(), constructor.getDeclaringClass(), ctx);
         }
 
         private Object[] resolveMethodParameters(Method method, CreationalContext<T> ctx) {
-            Parameter[] params = method.getParameters();
+            return resolveExecutableParameters(method.getParameters(), method.getDeclaringClass(), ctx);
+        }
+
+        private Object[] resolveExecutableParameters(Parameter[] params,
+                                                     Class<?> declaringClass,
+                                                     CreationalContext<T> ctx) {
             Object[] args = new Object[params.length];
 
             for (int i = 0; i < params.length; i++) {
                 Type resolvedType = GenericTypeResolver.resolve(
                         params[i].getParameterizedType(),
                         annotatedType.getJavaClass(),
-                        method.getDeclaringClass()
+                        declaringClass
                 );
                 InjectionPoint ip = createInjectionPoint(params[i], resolvedType);
                 args[i] = beanManager.getInjectableReference(ip, ctx);

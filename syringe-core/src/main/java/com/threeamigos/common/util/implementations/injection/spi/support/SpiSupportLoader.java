@@ -14,14 +14,14 @@ public final class SpiSupportLoader {
     }
 
     public static SpiSupport load() {
-        ClassLoader tccl = Thread.currentThread().getContextClassLoader();
-        SpiSupport loaded = load(tccl);
+        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        SpiSupport loaded = load(classLoader);
         if (loaded != null) {
             return loaded;
         }
 
         ClassLoader fallback = SpiSupportLoader.class.getClassLoader();
-        if (fallback != null && fallback != tccl) {
+        if (fallback != null && fallback != classLoader) {
             loaded = load(fallback);
             if (loaded != null) {
                 return loaded;

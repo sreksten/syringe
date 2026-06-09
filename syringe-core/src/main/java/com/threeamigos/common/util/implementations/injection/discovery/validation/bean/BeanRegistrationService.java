@@ -413,14 +413,7 @@ public class BeanRegistrationService {
     }
 
     public Set<Class<? extends Annotation>> extractStereotypes(AnnotatedElement element) {
-        Set<Class<? extends Annotation>> stereotypes = new HashSet<>();
-        for (Annotation annotation : validator.annotationsOf(element)) {
-            Class<? extends Annotation> annotationType = annotation.annotationType();
-            if (validator.isStereotypeAnnotationType(annotationType)) {
-                stereotypes.add(annotationType);
-            }
-        }
-        return stereotypes;
+        return extractStereotypeTypes(validator.annotationsOf(element), validator::isStereotypeAnnotationType);
     }
 
     private Set<Type> resolveProducerMethodBeanTypes(Method producerMethod,

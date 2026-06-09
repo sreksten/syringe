@@ -404,15 +404,18 @@ public class TypesHelper {
         return null;
     }
 
-    public static Object defaultPrimitiveValue(Class<?> primitiveType) {
-        if (primitiveType == boolean.class) return false;
-        if (primitiveType == byte.class) return (byte) 0;
-        if (primitiveType == short.class) return (short) 0;
-        if (primitiveType == int.class) return 0;
-        if (primitiveType == long.class) return 0L;
-        if (primitiveType == float.class) return 0f;
-        if (primitiveType == double.class) return 0d;
-        if (primitiveType == char.class) return '\u0000';
+    public static Object defaultPrimitiveValue(Class<?> type) {
+        if (type == null || !type.isPrimitive()) {
+            return null;
+        }
+        if (type == boolean.class) return false;
+        if (type == byte.class) return (byte) 0;
+        if (type == short.class) return (short) 0;
+        if (type == int.class) return 0;
+        if (type == long.class) return 0L;
+        if (type == float.class) return 0f;
+        if (type == double.class) return 0d;
+        if (type == char.class) return '\u0000';
         return null;
     }
 
@@ -946,7 +949,7 @@ public class TypesHelper {
      * // Simple case:
      * t1 = List&lt;String&gt;
      * t2 = ArrayList&lt;String&gt;
-     * Resolves ArrayList&lt;String&gt; to List&lt;String&gt;, then checks arguments
+     * Resolves ArrayList&lt;String&gt; to List&lt;String&gt; then checks arguments
      *
      * // Nested case:
      * t1 = Map&lt;String, List&lt;Integer&gt;&gt;
@@ -1147,7 +1150,7 @@ public class TypesHelper {
      * Best-effort raw class extraction.
      *
      * <p>This method is intentionally conservative and returns {@code null}
-     * when a raw class cannot be directly extracted (for example from
+     * when a raw class cannot be directly extracted (for example, from
      * wildcards/type variables/generic arrays).
      */
     public static Class<?> extractRawClass(Type type) {

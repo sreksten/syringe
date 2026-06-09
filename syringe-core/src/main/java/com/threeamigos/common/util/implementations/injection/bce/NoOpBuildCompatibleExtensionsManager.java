@@ -16,27 +16,20 @@ import jakarta.enterprise.inject.spi.BeanManager;
  */
 public class NoOpBuildCompatibleExtensionsManager implements BuildCompatibleExtensionsManager {
 
-    private MessageHandler messageHandler;
-    private KnowledgeBase knowledgeBase;
-
     @Override
     public void setMessageHandler(MessageHandler messageHandler) {
-        this.messageHandler = messageHandler;
     }
 
     @Override
     public void setKnowledgeBase(KnowledgeBase knowledgeBase) {
-        this.knowledgeBase = knowledgeBase;
     }
 
     @Override
     public void setBeanManager(BeanManager beanManager) {
-        // no-op
     }
 
     @Override
     public void setExtensionsManager(ExtensionsManager extensionsManager) {
-        // no-op
     }
 
     @Override
@@ -48,16 +41,13 @@ public class NoOpBuildCompatibleExtensionsManager implements BuildCompatibleExte
 
     @Override
     public void loadBuildCompatibleExtensions() {
-        // no-op: no BCE registered, nothing to load
     }
 
     @Override
     public void fireBuildCompatibleExtensionPhase(BceSupportedPhase phase) {
-        // no-op
     }
 
     @Override
     public void clear() {
-        // no-op
     }
 }

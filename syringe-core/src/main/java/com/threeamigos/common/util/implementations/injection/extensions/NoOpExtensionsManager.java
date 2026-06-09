@@ -34,22 +34,16 @@ import java.util.Map;
  */
 public class NoOpExtensionsManager implements ExtensionsManager {
 
-    private MessageHandler messageHandler;
-    private KnowledgeBase knowledgeBase;
-
     @Override
     public void setMessageHandler(MessageHandler messageHandler) {
-        this.messageHandler = messageHandler;
     }
 
     @Override
     public void setKnowledgeBase(KnowledgeBase knowledgeBase) {
-        this.knowledgeBase = knowledgeBase;
     }
 
     @Override
     public void setBeanManager(BeanManager beanManager) {
-        // no-op
     }
 
     @Override
@@ -68,7 +62,6 @@ public class NoOpExtensionsManager implements ExtensionsManager {
 
     @Override
     public void loadExtensions() {
-        // no-op: no extensions registered, nothing to load
     }
 
     @Override
@@ -83,17 +76,14 @@ public class NoOpExtensionsManager implements ExtensionsManager {
 
     @Override
     public void fireBeforeBeanDiscovery() {
-        // no-op
     }
 
     @Override
     public void fireAfterTypeDiscovery() {
-        // no-op
     }
 
     @Override
     public <T> void fireEventToExtensions(T event) {
-        // no-op
     }
 
     @Override
@@ -113,17 +103,15 @@ public class NoOpExtensionsManager implements ExtensionsManager {
 
     @Override
     public <T> ProcessBeanAttributesResult<T> processBeanAttributes(Annotated annotated, BeanAttributes<T> beanAttributes) {
-        return new ProcessBeanAttributesResult<T>(false, false, beanAttributes);
+        return new ProcessBeanAttributesResult<>(false, false, beanAttributes);
     }
 
     @Override
     public void processSyntheticBean(Bean<?> bean, Extension sourceExtension) {
-        // no-op
     }
 
     @Override
     public void processManagedBean(Bean<?> bean, AnnotatedType<?> annotatedType, BeanManager beanManager) {
-        // no-op
     }
 
     @Override
@@ -149,26 +137,21 @@ public class NoOpExtensionsManager implements ExtensionsManager {
 
     @Override
     public void fireAfterBeanDiscovery(Map<Class<? extends Annotation>, Context> customContextsToRegister) {
-        // no-op
     }
 
     @Override
     public void fireAfterDeploymentValidation() {
-        // no-op
     }
 
     @Override
     public void fireBeforeShutdown() {
-        // no-op
     }
 
     @Override
     public void processRegisteredAnnotatedTypes() {
-        // no-op
     }
 
     @Override
     public void clear() {
-        // no-op
     }
 }

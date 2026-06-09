@@ -390,7 +390,7 @@ public class InjectionMetadataValidator {
         }
         ParameterizedType parameterizedType = (ParameterizedType) type;
         Type[] args = parameterizedType.getActualTypeArguments();
-        if (args == null || args.length != 1 || !(args[0] instanceof Class)) {
+        if (args.length != 1 || !(args[0] instanceof Class)) {
             throw new NonPortableBehaviourException(
                     "Non-portable behavior: InterceptionFactory injection point type parameter must be a Java class");
         }

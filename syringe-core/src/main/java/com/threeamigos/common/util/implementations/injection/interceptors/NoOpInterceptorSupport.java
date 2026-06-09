@@ -23,7 +23,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * No-op {@link InterceptorSupport} used when syringe-interceptors is not on the classpath.
+ * No-op {@link InterceptorSupport} used when syringe-interceptors.jar is not on the classpath.
  *
  * <p>Returns {@code null} for the resolver and proxy generator (safe because BeanImpl handles
  * {@code null} gracefully when no interceptors are registered). Throws
@@ -145,7 +145,7 @@ public class NoOpInterceptorSupport implements InterceptorSupport {
 
     private Class<?> firstUnsupportedInterceptorClass() {
         for (Class<?> interceptorClass : knowledgeBase.getInterceptors()) {
-            if (!isIgnorableBuiltInInterceptor(interceptorClass)) {
+            if (isNotIgnorableBuiltInInterceptor(interceptorClass)) {
                 return interceptorClass;
             }
         }
@@ -153,18 +153,18 @@ public class NoOpInterceptorSupport implements InterceptorSupport {
             Class<?> interceptorClass = interceptorInfo != null
                     ? interceptorInfo.getInterceptorClass()
                     : null;
-            if (interceptorClass != null && !isIgnorableBuiltInInterceptor(interceptorClass)) {
+            if (interceptorClass != null && isNotIgnorableBuiltInInterceptor(interceptorClass)) {
                 return interceptorClass;
             }
         }
         return null;
     }
 
-    private boolean isIgnorableBuiltInInterceptor(Class<?> interceptorClass) {
+    private boolean isNotIgnorableBuiltInInterceptor(Class<?> interceptorClass) {
         if (interceptorClass == null) {
-            return false;
+            return true;
         }
-        return ActivateRequestContextInterceptor.class.getName().equals(interceptorClass.getName());
+        return !ActivateRequestContextInterceptor.class.getName().equals(interceptorClass.getName());
     }
 
     private static final class NoOpChainBuilder implements InterceptorChainModel.Builder {

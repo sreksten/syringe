@@ -55,10 +55,6 @@ public class CDIImpl extends CDI<Object> {
      *
      * @param beanManager The BeanManager to wrap
      */
-    public CDIImpl(BeanManagerImpl beanManager) {
-        this(beanManager, false, ALWAYS_ALLOWED);
-    }
-
     public CDIImpl(BeanManagerImpl beanManager, boolean cdiLiteMode, BooleanSupplier accessGuard) {
         if (beanManager == null) {
             throw new IllegalArgumentException("beanManager cannot be null");

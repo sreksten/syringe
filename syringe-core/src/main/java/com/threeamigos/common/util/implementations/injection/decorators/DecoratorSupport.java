@@ -14,7 +14,7 @@ import java.util.Set;
 /**
  * Service provider interface for decorator support.
  *
- * <p>Discovered via {@link java.util.ServiceLoader}. If syringe-decorators is on the classpath,
+ * <p>Discovered via {@link java.util.ServiceLoader}. If syringe-decorators.jar is on the classpath,
  * {@code DecoratorSupportImpl} is loaded; otherwise {@link NoOpDecoratorSupport} is used.
  */
 public interface DecoratorSupport {
@@ -47,7 +47,7 @@ public interface DecoratorSupport {
     void validateProgrammaticDecoratorConfiguration();
 
     /**
-     * Clears any per-instance caches held by this support object (e.g. proxy class cache).
+     * Clears any per-instance caches held by this support object (e.g., proxy class cache).
      */
     void clear();
 }

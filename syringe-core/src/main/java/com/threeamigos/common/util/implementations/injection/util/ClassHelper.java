@@ -1,5 +1,7 @@
 package com.threeamigos.common.util.implementations.injection.util;
 
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -87,6 +89,30 @@ public class ClassHelper {
             current = current.getSuperclass();
         }
         return depth;
+    }
+
+    public static Method findMethodInHierarchy(Class<?> type, String methodName, Class<?>[] parameterTypes) {
+        Class<?> current = type;
+        while (current != null && current != Object.class) {
+            try {
+                return current.getDeclaredMethod(methodName, parameterTypes);
+            } catch (NoSuchMethodException ignored) {
+                current = current.getSuperclass();
+            }
+        }
+        return null;
+    }
+
+    public static Object invokeOnRuntimeMethod(Object targetInstance, Method method, Object[] args) throws Exception {
+        Method invocable = method;
+        if (targetInstance != null && !Modifier.isStatic(method.getModifiers())) {
+            Method resolved = findMethodInHierarchy(targetInstance.getClass(), method.getName(), method.getParameterTypes());
+            if (resolved != null) {
+                invocable = resolved;
+            }
+        }
+        invocable.setAccessible(true);
+        return invocable.invoke(targetInstance, args);
     }
 
 }

@@ -128,25 +128,7 @@ public class ProducerDisposerValidator {
                 continue;
             }
 
-            try {
-                validator.checkInjectionTypeValidity(validator.baseTypeOf(parameter));
-            } catch (IllegalArgumentException e) {
-                knowledgeBase.addInjectionError(validator.fmtParameter(parameter) + ": " + e.getMessage());
-                valid = false;
-            } catch (DefinitionException e) {
-                knowledgeBase.addDefinitionError(validator.fmtParameter(parameter) + ": " + e.getMessage());
-                valid = false;
-            }
-            try {
-                validator.validateQualifiers(validator.annotationsOf(parameter), validator.fmtMethod(method));
-            } catch (DefinitionException e) {
-                knowledgeBase.addDefinitionError(validator.fmtParameter(parameter) + ": " + e.getMessage());
-                valid = false;
-            }
-
-            if (validator.isNotValidNamedInjectionPointUsage(parameter)) {
-                valid = false;
-            }
+            valid = isValid(method, valid, parameter);
 
             if (validator.isNotValidInjectionPointMetadataUsage(parameter, false)) {
                 valid = false;
@@ -226,26 +208,7 @@ public class ProducerDisposerValidator {
 
         for (Parameter parameter : method.getParameters()) {
             if (!validator.hasDisposesAnnotation(parameter)) {
-                try {
-                    validator.checkInjectionTypeValidity(validator.baseTypeOf(parameter));
-                } catch (IllegalArgumentException e) {
-                    knowledgeBase.addInjectionError(validator.fmtParameter(parameter) + ": " + e.getMessage());
-                    valid = false;
-                } catch (DefinitionException e) {
-                    knowledgeBase.addDefinitionError(validator.fmtParameter(parameter) + ": " + e.getMessage());
-                    valid = false;
-                }
-
-                try {
-                    validator.validateQualifiers(validator.annotationsOf(parameter), validator.fmtMethod(method));
-                } catch (DefinitionException e) {
-                    knowledgeBase.addDefinitionError(validator.fmtParameter(parameter) + ": " + e.getMessage());
-                    valid = false;
-                }
-
-                if (validator.isNotValidNamedInjectionPointUsage(parameter)) {
-                    valid = false;
-                }
+                valid = isValid(method, valid, parameter);
 
                 if (validator.isNotValidInjectionPointMetadataUsage(parameter, true)) {
                     valid = false;
@@ -253,6 +216,30 @@ public class ProducerDisposerValidator {
             }
         }
 
+        return valid;
+    }
+
+    private boolean isValid(Method method, boolean valid, Parameter parameter) {
+        try {
+            validator.checkInjectionTypeValidity(validator.baseTypeOf(parameter));
+        } catch (IllegalArgumentException e) {
+            knowledgeBase.addInjectionError(validator.fmtParameter(parameter) + ": " + e.getMessage());
+            valid = false;
+        } catch (DefinitionException e) {
+            knowledgeBase.addDefinitionError(validator.fmtParameter(parameter) + ": " + e.getMessage());
+            valid = false;
+        }
+
+        try {
+            validator.validateQualifiers(validator.annotationsOf(parameter), validator.fmtMethod(method));
+        } catch (DefinitionException e) {
+            knowledgeBase.addDefinitionError(validator.fmtParameter(parameter) + ": " + e.getMessage());
+            valid = false;
+        }
+
+        if (validator.isNotValidNamedInjectionPointUsage(parameter)) {
+            valid = false;
+        }
         return valid;
     }
 

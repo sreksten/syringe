@@ -65,10 +65,6 @@ final class BeanManagerRegistry {
                 new LinkedHashSet<>(BEAN_MANAGER_ID_REGISTRY.values()));
     }
 
-    static boolean destroyTransientReference(Object instance) {
-        return destroyTransientReference(null, instance);
-    }
-
     @SuppressWarnings({"rawtypes", "unchecked"})
     static boolean destroyTransientReference(String ownerBeanManagerId, Object instance) {
         if (instance == null) {

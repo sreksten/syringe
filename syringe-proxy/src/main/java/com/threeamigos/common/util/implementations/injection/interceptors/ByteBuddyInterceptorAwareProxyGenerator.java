@@ -27,6 +27,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.hasAroundInvokeAnnotation;
+import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.defaultPrimitiveValue;
 
 /**
  * Generates proxies that integrate interceptor chain execution with business method calls.
@@ -209,44 +210,13 @@ public class ByteBuddyInterceptorAwareProxyGenerator {
             Class<?>[] parameterTypes = constructor.getParameterTypes();
             Object[] args = new Object[parameterTypes.length];
             for (int i = 0; i < parameterTypes.length; i++) {
-                args[i] = defaultValue(parameterTypes[i]);
+                args[i] = defaultPrimitiveValue(parameterTypes[i]);
             }
             return constructor.newInstance(args);
         }
 
         throw new IllegalStateException("No accessible constructor available for generated proxy " +
                 proxyClass.getName());
-    }
-
-    private Object defaultValue(Class<?> type) {
-        if (type == null || !type.isPrimitive()) {
-            return null;
-        }
-        if (boolean.class.equals(type)) {
-            return false;
-        }
-        if (byte.class.equals(type)) {
-            return (byte) 0;
-        }
-        if (short.class.equals(type)) {
-            return (short) 0;
-        }
-        if (int.class.equals(type)) {
-            return 0;
-        }
-        if (long.class.equals(type)) {
-            return 0L;
-        }
-        if (float.class.equals(type)) {
-            return 0f;
-        }
-        if (double.class.equals(type)) {
-            return 0d;
-        }
-        if (char.class.equals(type)) {
-            return '\0';
-        }
-        return null;
     }
 
     /**

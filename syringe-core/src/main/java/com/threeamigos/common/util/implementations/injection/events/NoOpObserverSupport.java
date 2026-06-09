@@ -38,12 +38,7 @@ public class NoOpObserverSupport implements ObserverSupport {
 
     private static final String FEATURE_UNAVAILABLE = "Event/observer support is not available.";
 
-    private static final ContextTokenProvider NO_OP_CONTEXT_TOKEN_PROVIDER = new ContextTokenProvider() {
-        @Override
-        public ContextSnapshot capture() {
-            return null;
-        }
-    };
+    private static final ContextTokenProvider NO_OP_CONTEXT_TOKEN_PROVIDER = () -> null;
 
     private KnowledgeBase knowledgeBase;
 
@@ -167,7 +162,6 @@ public class NoOpObserverSupport implements ObserverSupport {
     // No-op Event implementation
     // -------------------------------------------------------------------------
 
-    @SuppressWarnings("unchecked")
     private static final class NoOpEvent<T> implements Event<T> {
 
         @SuppressWarnings("rawtypes")

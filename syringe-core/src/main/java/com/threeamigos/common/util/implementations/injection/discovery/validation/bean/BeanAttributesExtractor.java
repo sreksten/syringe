@@ -103,14 +103,7 @@ public class BeanAttributesExtractor {
     }
 
     public Set<Class<? extends Annotation>> extractBeanStereotypes(Class<?> clazz) {
-        Set<Class<? extends Annotation>> stereotypes = new HashSet<>();
-        for (Annotation annotation : validator.annotationsOf(clazz)) {
-            Class<? extends Annotation> annotationType = annotation.annotationType();
-            if (validator.isStereotypeAnnotationType(annotationType)) {
-                stereotypes.add(annotationType);
-            }
-        }
-        return stereotypes;
+        return extractStereotypeTypes(validator.annotationsOf(clazz), validator::isStereotypeAnnotationType);
     }
 
     private String extractNameFromStereotype(Class<? extends Annotation> stereotypeAnnotation,

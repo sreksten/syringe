@@ -14,6 +14,7 @@ import java.lang.annotation.Annotation;
 import java.lang.annotation.Target;
 import java.lang.reflect.*;
 import java.util.*;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -371,6 +372,25 @@ public class AnnotationsHelper {
             }
         }
         return false;
+    }
+
+    public static Set<Class<? extends Annotation>> extractStereotypeTypes(
+            Annotation[] annotations,
+            Predicate<Class<? extends Annotation>> stereotypePredicate) {
+        Set<Class<? extends Annotation>> stereotypes = new HashSet<>();
+        if (annotations == null || stereotypePredicate == null) {
+            return stereotypes;
+        }
+        for (Annotation annotation : annotations) {
+            if (annotation == null) {
+                continue;
+            }
+            Class<? extends Annotation> annotationType = annotation.annotationType();
+            if (stereotypePredicate.test(annotationType)) {
+                stereotypes.add(annotationType);
+            }
+        }
+        return stereotypes;
     }
 
     public static boolean isScopeOrNormalScopeAnnotation(Class<? extends Annotation> annotationType) {

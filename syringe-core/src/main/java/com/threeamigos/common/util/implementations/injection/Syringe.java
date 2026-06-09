@@ -1484,6 +1484,7 @@ public class Syringe {
      *
      * <p>Extensions can wrap InjectionTarget to customize instantiation and injection.
      */
+    @SuppressWarnings({"rawtypes", "unchecked"})
     private void processInjectionTargets() {
         info("Processing injection targets");
 
@@ -1502,7 +1503,6 @@ public class Syringe {
                     }
                     InjectionTargetFactory<?> factory = new InjectionTargetFactoryImpl<>(annotatedType, beanManager);
 
-                    @SuppressWarnings("unchecked")
                     InjectionTarget<Object> injectionTarget =
                             (InjectionTarget<Object>) factory.createInjectionTarget((Bean) managedBean);
 
@@ -1526,6 +1526,7 @@ public class Syringe {
         processInterceptorAndDecoratorInjectionTargets();
     }
 
+    @SuppressWarnings({"rawtypes", "unchecked"})
     private void processInterceptorAndDecoratorInjectionTargets() {
         Set<Class<?>> lifecycleTypes = new LinkedHashSet<>();
         for (InterceptorInfo interceptorInfo : knowledgeBase.getInterceptorInfos()) {
@@ -1657,6 +1658,7 @@ public class Syringe {
         }
     }
 
+    @SuppressWarnings({"rawtypes", "unchecked"})
     private void processInterceptorAndDecoratorBeanAttributes(Set<Class<?>> processedBeanClasses) {
         Set<Class<?>> lifecycleTypes = new LinkedHashSet<>();
         for (InterceptorInfo interceptorInfo : knowledgeBase.getInterceptorInfos()) {

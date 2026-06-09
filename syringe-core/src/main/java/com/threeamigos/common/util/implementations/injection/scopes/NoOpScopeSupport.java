@@ -17,7 +17,7 @@ import jakarta.enterprise.inject.spi.BeanManager;
 import java.lang.annotation.Annotation;
 
 /**
- * No-op {@link ScopeSupport} used when syringe-scopes is absent from the classpath.
+ * No-op {@link ScopeSupport} used when syringe-scopes.jar is absent from the classpath.
  */
 public class NoOpScopeSupport implements ScopeSupport {
 

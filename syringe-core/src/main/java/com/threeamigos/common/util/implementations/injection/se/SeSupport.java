@@ -9,7 +9,7 @@ import com.threeamigos.common.util.implementations.injection.Syringe;
  * {@code SeSupportImpl} is loaded; otherwise {@link NoOpSeSupport} is used.
  *
  * <p>The no-op is fully silent: absence of this module simply means {@code CDI.current()}
- * will not be registered and the container functions as a programmatically-driven container.
+ * will not be registered and the container functions as a programmatically driven container.
  * No {@code NotEnabledFeatureException} is thrown.
  */
 public interface SeSupport {

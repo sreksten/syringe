@@ -10,7 +10,7 @@ import jakarta.enterprise.inject.spi.BeanManager;
 /**
  * Service provider interface for normal-scope support.
  *
- * <p>Discovered via {@link java.util.ServiceLoader}. If syringe-scopes is on the classpath,
+ * <p>Discovered via {@link java.util.ServiceLoader}. If syringe-scopes.jar is on the classpath,
  * {@code ScopeSupportImpl} is loaded; otherwise {@link NoOpScopeSupport} is used.
  */
 public interface ScopeSupport {

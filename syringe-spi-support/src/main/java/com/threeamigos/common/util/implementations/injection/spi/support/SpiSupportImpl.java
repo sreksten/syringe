@@ -1,15 +1,12 @@
 package com.threeamigos.common.util.implementations.injection.spi.support;
 
-import com.threeamigos.common.util.implementations.injection.spi.SyntheticBean;
 import com.threeamigos.common.util.implementations.injection.spi.SyntheticBeanImpl;
 import com.threeamigos.common.util.implementations.injection.spi.SyntheticDecoratorBeanImpl;
 import com.threeamigos.common.util.implementations.injection.spi.SyntheticProducerBeanImpl;
 import com.threeamigos.common.util.implementations.injection.spi.configurators.AnnotatedTypeConfiguratorImpl;
-import jakarta.enterprise.context.spi.CreationalContext;
 import jakarta.enterprise.inject.spi.AnnotatedType;
 import jakarta.enterprise.inject.spi.Bean;
 import jakarta.enterprise.inject.spi.BeanAttributes;
-import jakarta.enterprise.inject.spi.InjectionPoint;
 import jakarta.enterprise.inject.spi.InjectionTarget;
 import jakarta.enterprise.inject.spi.Producer;
 import jakarta.enterprise.inject.spi.configurator.AnnotatedTypeConfigurator;
@@ -17,8 +14,6 @@ import jakarta.enterprise.inject.spi.configurator.AnnotatedTypeConfigurator;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 import java.util.Set;
-import java.util.function.BiConsumer;
-import java.util.function.Function;
 
 /**
  * Default SPI support implementation backed by syringe-spi-support classes.
@@ -37,35 +32,6 @@ public class SpiSupportImpl implements SpiSupport {
                     (configurator == null ? "null" : configurator.getClass().getName()));
         }
         return ((AnnotatedTypeConfiguratorImpl<T>) configurator).complete();
-    }
-
-    @Override
-    public <T> Bean<T> createSyntheticBean(Class<?> beanClass,
-                                           Set<Type> types,
-                                           Set<Annotation> qualifiers,
-                                           Class<? extends Annotation> scope,
-                                           String name,
-                                           String id,
-                                           Set<Class<? extends Annotation>> stereotypes,
-                                           boolean alternative,
-                                           Integer priority,
-                                           Function<CreationalContext<T>, T> createCallback,
-                                           BiConsumer<T, CreationalContext<T>> destroyCallback,
-                                           Set<InjectionPoint> injectionPoints) {
-        return new SyntheticBean<>(
-                beanClass,
-                types,
-                qualifiers,
-                scope,
-                name,
-                id,
-                stereotypes,
-                alternative,
-                priority,
-                createCallback,
-                destroyCallback,
-                injectionPoints
-        );
     }
 
     @Override

@@ -65,6 +65,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum.*;
 import static com.threeamigos.common.util.implementations.injection.annotations.AnnotationsHelper.*;
 import static com.threeamigos.common.util.implementations.injection.util.BeansHelper.collectSpecializedSuperclasses;
+import static com.threeamigos.common.util.implementations.injection.util.ClassHelper.invokeOnRuntimeMethod;
 import static com.threeamigos.common.util.implementations.injection.util.TypesHelper.*;
 
 /**
@@ -1626,30 +1627,6 @@ public class EventImpl<T> implements Event<T>, Serializable {
             }
         }
         return qualifierSet.toArray(new Annotation[0]);
-    }
-
-    private void invokeOnRuntimeMethod(Object targetInstance, Method method, Object[] args) throws Exception {
-        Method invocable = method;
-        if (targetInstance != null && !Modifier.isStatic(method.getModifiers())) {
-            Method resolved = findMethodInHierarchy(targetInstance.getClass(), method.getName(), method.getParameterTypes());
-            if (resolved != null) {
-                invocable = resolved;
-            }
-        }
-        invocable.setAccessible(true);
-        invocable.invoke(targetInstance, args);
-    }
-
-    private Method findMethodInHierarchy(Class<?> type, String methodName, Class<?>[] parameterTypes) {
-        Class<?> current = type;
-        while (current != null && current != Object.class) {
-            try {
-                return current.getDeclaredMethod(methodName, parameterTypes);
-            } catch (NoSuchMethodException ignored) {
-                current = current.getSuperclass();
-            }
-        }
-        return null;
     }
 
     private boolean shouldUseRuntimeMethodDispatch(Bean<?> declaringBean, Method method, Object beanInstance) {

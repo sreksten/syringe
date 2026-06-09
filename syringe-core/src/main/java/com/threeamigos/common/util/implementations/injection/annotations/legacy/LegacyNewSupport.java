@@ -29,7 +29,7 @@ public interface LegacyNewSupport {
     void enable();
 
     /**
-     * Resolves {@code @New} selection metadata from the required type + qualifier set.
+     * Resolves {@code @New} selection metadata from the required type and qualifier set.
      *
      * @return selection metadata, or {@code null} when no {@code @New} qualifier is present
      */

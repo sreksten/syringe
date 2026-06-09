@@ -205,10 +205,6 @@ public class BeanManagerImpl implements BeanManager, Serializable {
         }
     }
 
-    public void clearRegisteredExtensions() {
-        registeredExtensions.clear();
-    }
-
     public void setRequireActiveContextForGetContext(boolean requireActiveContextForGetContext) {
         this.requireActiveContextForGetContext = requireActiveContextForGetContext;
     }
@@ -603,7 +599,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
                 if (notSameRawType(beanType, type)) {
                     continue;
                 }
-                if (typesHelper.isLookupTypeAssignable(beanType, type)) {
+                if (isLookupTypeAssignable(beanType, type)) {
                     typeMatches = true;
                     break;
                 }
@@ -727,7 +723,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
                 if (notSameRawType(beanType, type)) {
                     continue;
                 }
-                if (typesHelper.isLookupTypeAssignable(beanType, type)) {
+                if (isLookupTypeAssignable(beanType, type)) {
                     typeMatches = true;
                     break;
                 }
@@ -1249,7 +1245,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
 
         for (ObserverMethodMetadata observerInfo : knowledgeBase.getObserverMethodInfos()) {
             // Check type compatibility
-            if (!typesHelper.isEventTypeAssignable(observerInfo.getEventType(), eventType)) {
+            if (!isEventTypeAssignable(observerInfo.getEventType(), eventType)) {
                 continue;
             }
 
@@ -1264,7 +1260,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
             if (syntheticObserver == null) {
                 continue;
             }
-            if (!typesHelper.isEventTypeAssignable(syntheticObserver.getObservedType(), eventType)) {
+            if (!isEventTypeAssignable(syntheticObserver.getObservedType(), eventType)) {
                 continue;
             }
 
@@ -2060,7 +2056,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
         validateQualifierSet(observedQualifiers, "observedQualifiers");
 
         // Check type compatibility
-        if (!typesHelper.isEventTypeAssignable(observedType, eventType)) {
+        if (!isEventTypeAssignable(observedType, eventType)) {
             return false;
         }
 
@@ -2475,7 +2471,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
                     if (isObjectType(requestedType)) {
                         continue;
                     }
-                    if (typesHelper.isLookupTypeAssignable(requestedType, decoratedType)) {
+                    if (isLookupTypeAssignable(requestedType, decoratedType)) {
                         return true;
                     }
                 }
@@ -2487,7 +2483,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
                 if (isObjectType(requestedType)) {
                     continue;
                 }
-                if (typesHelper.isLookupTypeAssignable(requestedType, delegateType)) {
+                if (isLookupTypeAssignable(requestedType, delegateType)) {
                     return true;
                 }
             }
@@ -3547,7 +3543,7 @@ public class BeanManagerImpl implements BeanManager, Serializable {
      */
     private ObserverMethodMetadata createSyntheticObserverInfo(final ObserverMethod<?> syntheticObserver) {
         final Set<Annotation> observedQualifiers = syntheticObserver.getObservedQualifiers() == null
-                ? Collections.<Annotation>emptySet()
+                ? Collections.emptySet()
                 : syntheticObserver.getObservedQualifiers();
         return new ObserverMethodMetadata() {
             @Override

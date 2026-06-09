@@ -18,9 +18,9 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * No-op {@link DecoratorSupport} used when syringe-decorators is not on the classpath.
+ * No-op {@link DecoratorSupport} used when syringe-decorators.jar is not on the classpath.
  *
- * <p>Resolution methods return empty/identity results so the container can run without decorator
+ * <p>Resolution methods return empty/identity results, so the container can run without decorator
  * support when decorators are not used. Validation methods detect actual decorator usage and throw
  * {@link NotEnabledFeatureException} with guidance to add the missing module.
  */
