@@ -520,7 +520,7 @@ public enum AnnotationsEnum {
                 }
             }
         }
-        this.annotations = Collections.unmodifiableSet(resolved);
+        this.annotations = resolved;
     }
 
     @SuppressWarnings("unchecked")
@@ -542,7 +542,19 @@ public enum AnnotationsEnum {
      * @return immutable set of annotation classes
      */
     public Set<Class<? extends Annotation>> getAnnotations() {
-        return annotations;
+        return Collections.unmodifiableSet(annotations);
+    }
+
+    /**
+     * Maps an annotation class to this enum value.
+     *
+     * @param annotationClass the annotation class to add
+     */
+    public void addAnnotation(Class<? extends Annotation> annotationClass) {
+        if (annotationClass == null) {
+            return;
+        }
+        annotations.add(annotationClass);
     }
 
     /**

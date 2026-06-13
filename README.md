@@ -219,6 +219,21 @@ try (SeContainer container = init.initialize()) {
 
 If the module is missing and feature usage is detected, Syringe throws `NotEnabledFeatureException` with the exact artifact name to add.
 
+
+### 5) Add custom annotations to standard ones
+
+The `syringe.addCustomAnnotation(AnnotationsEnum standardAnnotation, Class<? extends Annotation> customAnnotation)`
+method allows you to use custom annotations as aliases to the standard ones, such as `@Inject`, `@Named`, etc.
+
+For example, you could add a localized version of `@Inject`. No one knows why you would do this except for fun.
+Older `javax.` annotations are already supported out-of-the-box.
+
+```java
+syringe.addCustomAnnotation(AnnotationsEnum.INJECT, Inietta.class); // Italian
+syringe.addCustomAnnotation(AnnotationsEnum.INJECT, Injecter.class); // French
+syringe.addCustomAnnotation(AnnotationsEnum.INJECT, Injisere.class); // Norwegian
+```
+
 ## Build Instructions
 
 By default, the parent build runs a module-local clean during `initialize`, so every module JAR is rebuilt before shading the aggregate JAR.

@@ -1,5 +1,6 @@
 package com.threeamigos.common.util.implementations.injection;
 
+import com.threeamigos.common.util.implementations.injection.annotations.AnnotationsEnum;
 import com.threeamigos.common.util.implementations.injection.annotations.DynamicAnnotationRegistry;
 
 import com.threeamigos.common.util.implementations.injection.annotations.legacy.LegacyNewSupport;
@@ -539,6 +540,19 @@ public class Syringe {
 
         customContextsToRegister.put(scopeAnnotation, context);
         info("Queued custom context for registration: @" + scopeAnnotation.getSimpleName());
+    }
+
+    public void addCustomAnnotation(AnnotationsEnum standardAnnotation, Class<? extends Annotation> customAnnotation) {
+        if (standardAnnotation == null) {
+            throw new IllegalArgumentException("standardAnnotation cannot be null");
+        }
+
+        if (customAnnotation == null) {
+            throw new IllegalArgumentException("annotationClass cannot be null");
+        }
+
+        standardAnnotation.addAnnotation(customAnnotation);
+        info("Custom annotation added to " + standardAnnotation + ": @" + customAnnotation.getSimpleName());
     }
 
     /**
